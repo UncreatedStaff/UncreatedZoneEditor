@@ -1,0 +1,30 @@
+<Project>
+
+  <!--
+    Installations | CONFIGURE YOUR INSTALLATION PATHS HERE
+    
+    Expected to have Unturned and U3DS installed with DevkitServer in the modules folder for each one.
+    Configure the paths to your installations below.
+  -->
+  <PropertyGroup>
+    <ServerPath>C:/SteamCMD/steamapps/common/U3DS</ServerPath>
+    <ClientPath>C:/Program Files (x86)/Steam/steamapps/common/Unturned</ClientPath>
+  </PropertyGroup>
+
+  <Import Project="./Defines.targets"/>
+
+  <!-- Platform-Specific Installation Path -->
+  <Choose>
+    <When Condition="'$(IsServer)' == 'True'">
+      <PropertyGroup>
+        <SharedPath>$(ServerPath)</SharedPath>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <SharedPath>$(ClientPath)</SharedPath>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
+</Project>

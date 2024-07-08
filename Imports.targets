@@ -1,0 +1,41 @@
+<Project>
+
+  <!-- Global Usings -->
+  <ItemGroup>
+    <Using Remove="System.Net.Http" />
+    <Using Remove="System.Text" />
+    <Using Include="SDG.NetTransport" />
+    <Using Include="SDG.Unturned" />
+    <Using Include="Steamworks" />
+    <Using Include="System.Collections" />
+    <Using Include="UnityEngine" />
+    <Using Include="DevkitServer.Util"/>
+    <Using Include="JetBrains.Annotations" />
+    <Using Include="DevkitServer.API" />
+    <Using Include="DevkitServer.API.Logging" />
+    <Using Include="DevkitServer.API.Commands" />
+    <Using Include="DevkitServer.API.Permissions" />
+    <Using Include="DevkitServer.API.Abstractions" />
+    <Using Include="DevkitServer.Util" />
+    <Using Include="DevkitServer.Util.Region" />
+    <Using Include="DevkitServer.Util.Encoding" />
+    <Using Include="DevkitServer.Players" />
+    <Using Include="DevkitServer.Models" />
+    <Using Include="DevkitServer.Configuration" />
+    <Using Include="UnityEngine.Object">
+      <Alias>Object</Alias>
+    </Using>
+    <Using Include="System.Action">
+      <Alias>Action</Alias>
+    </Using>
+    <Using Include="DevkitServer.API.Logging.Logger">
+      <Alias>Logger</Alias>
+    </Using>
+  </ItemGroup>
+  <ItemGroup Condition="$(IsClient)">
+    <Using Include="DevkitServer.API.UI" />
+    <Using Include="DevkitServer.API.UI.Extensions" />
+    <Using Include="DevkitServer.API.UI.Extensions.Members" />
+  </ItemGroup>
+
+</Project>

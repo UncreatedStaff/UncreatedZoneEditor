@@ -1,0 +1,40 @@
+<Project>
+  <Import Project="Paths.targets"/>
+
+  <!-- UniTask -->
+  <ItemGroup>
+    <Reference Include="UniTask">
+      <HintPath>$(DevkitServerModulePath)/Libraries/UniTask/UniTask.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <DevkitServerModulePath>$(SharedPath)/Modules/DevkitServer</DevkitServerModulePath>
+  </PropertyGroup>
+
+  <Import Project="Unturned.targets"/>
+
+  <PropertyGroup>
+    <DevkitServerMinCompatabilityVersion>0.0.29</DevkitServerMinCompatabilityVersion>
+  </PropertyGroup>
+
+  <!-- Packages -->
+  <Choose>
+    <When Condition="$(IsServer)">
+      <ItemGroup>
+        <PackageReference Include="DevkitServer.Server" Version="[$(DevkitServerMinCompatabilityVersion)-server,)">
+          <Private>false</Private>
+        </PackageReference>
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <PackageReference Include="DevkitServer.Client" Version="[$(DevkitServerMinCompatabilityVersion)-client,)">
+          <Private>false</Private>
+        </PackageReference>
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
+  
+</Project>

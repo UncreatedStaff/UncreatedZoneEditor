@@ -1,0 +1,13 @@
+<Project>
+
+  <!-- Copy libraries for EXEs. -->
+  <ItemGroup Condition="'$(OutputType)' != 'Library' Or '$(TestProjectType)' != ''">
+    <Reference Update="*">
+      <Private>true</Private>
+    </Reference>
+    <PackageReference Update="*">
+      <Private>true</Private>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,47 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34414.90
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UncreatedZoneEditor", "UncreatedZoneEditor\UncreatedZoneEditor.csproj", "{30F61078-D711-400B-A91F-D2D57C14F1A5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B98DA167-1C54-40EC-B1FB-EACDE9703DD2}"
+	ProjectSection(SolutionItems) = preProject
+		Cleanup.targets = Cleanup.targets
+		Defines.targets = Defines.targets
+		DevkitServer.targets = DevkitServer.targets
+		Imports.targets = Imports.targets
+		Paths.targets = Paths.targets
+		Unturned.targets = Unturned.targets
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		ClientDebug|Any CPU = ClientDebug|Any CPU
+		ClientRelease|Any CPU = ClientRelease|Any CPU
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+		ServerDebug|Any CPU = ServerDebug|Any CPU
+		ServerRelease|Any CPU = ServerRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.ClientDebug|Any CPU.ActiveCfg = ClientDebug|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.ClientDebug|Any CPU.Build.0 = ClientDebug|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.ClientRelease|Any CPU.ActiveCfg = ClientRelease|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.ClientRelease|Any CPU.Build.0 = ClientRelease|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.ServerDebug|Any CPU.ActiveCfg = ServerDebug|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.ServerDebug|Any CPU.Build.0 = ServerDebug|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.ServerRelease|Any CPU.ActiveCfg = ServerRelease|Any CPU
+		{30F61078-D711-400B-A91F-D2D57C14F1A5}.ServerRelease|Any CPU.Build.0 = ServerRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {012B806C-4893-4970-849F-0F96E6814226}
+	EndGlobalSection
+EndGlobal
