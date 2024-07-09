@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Uncreated.ZoneEditor.Data;
@@ -41,4 +42,34 @@ internal class ZoneJsonModel
     [JsonPropertyName("shape")]
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ZoneShape Shape { get; set; }
+
+    [JsonPropertyName("height")]
+    public float Height { get; set; }
+
+    [JsonPropertyName("circle")]
+    public ZoneJsonCircleInfo? CircleInfo { get; set; }
+
+    [JsonPropertyName("aabb")]
+    public ZoneJsonAABBInfo? AABBInfo { get; set; }
+
+    [JsonPropertyName("polygon")]
+    public ZoneJsonPolygonInfo? PolygonInfo { get; set; }
+}
+
+public class ZoneJsonCircleInfo
+{
+    [JsonPropertyName("radius")]
+    public float Radius { get; set; }
+}
+
+public class ZoneJsonAABBInfo
+{
+    [JsonPropertyName("size")]
+    public Vector3 Size { get; set; }
+}
+
+public class ZoneJsonPolygonInfo
+{
+    [JsonPropertyName("points")]
+    public Vector3[] Points { get; set; } = Array.Empty<Vector3>();
 }

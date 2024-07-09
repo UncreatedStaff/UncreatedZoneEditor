@@ -1,0 +1,94 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/UncreatedStaff/UncreatedZoneEditor/blob/master/Schemas/zone_list_schema.json",
+    "title": "Zone List",
+    "description": "Stores zones defined in the map editor.",
+    "type": "object",
+    "required": [ "zones" ],
+    "properties": {
+        "zones": {
+            "description": "List of all zones defined on the map.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "description": "Display name of the zone.",
+                        "type": "string"
+                    },
+                    "short_name": {
+                        "description": "Shortened display name of the zone.",
+                        "type": [ "string", "null" ]
+                    },
+                    "center_pos": {
+                        "description": "The world position of the center of the zone.",
+                        "type": "array",
+                        "items": {
+                            "type": "number",
+                            "minItems": 3,
+                            "maxItems": 3
+                        }
+                    },
+                    "spawn_pos": {
+                        "description": "The world position of the spawn of the zone (where players will spawn when they teleport).",
+                        "type": "array",
+                        "items": {
+                            "type": "number",
+                            "minItems": 3,
+                            "maxItems": 3
+                        }
+                    },
+                    "shape": {
+                        "description": "The shape of the zone boundary.",
+                        "type": "enum",
+                        "enum": [ "AABB", "Cylinder", "Sphere", "Polygon" ]
+                    },
+                    "height": {
+                        "description": "The distance between the min and max heights.",
+                        "type": "number"
+                    },
+                    "circle": {
+                        "type": "object",
+                        "properties": {
+                            "radius": {
+                                "description": "Radius of the cylinder or sphere.",
+                                "type": "number"
+                            }
+                        }
+                    },
+                    "aabb": {
+                        "type": "object",
+                        "properties": {
+                            "size": {
+                                "description": "Size of the axis-aligned bounding box around the center position.",
+                                "type": "array",
+                                "items": {
+                                    "type": "number",
+                                    "minItems": 3,
+                                    "maxItems": 3
+                                }
+                            }
+                        }
+                    },
+                    "polygon": {
+                        "type": "object",
+                        "properties": {
+                            "size": {
+                                "description": "Local positions of all points relative to the center position.",
+                                "type": "array",
+                                "items": {
+                                    "type": "array",
+                                    "items": {
+                                        "minItems": 3,
+                                        "maxItems": 3
+                                    },
+                                    "minItems": 3
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

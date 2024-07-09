@@ -291,11 +291,23 @@ public sealed class ZoneNetIdDatabase : IReplicatedLevelDataSource<ZoneNetIdRepl
         int index = 0;
 
         int ct = Math.Min(ushort.MaxValue, zones.Count);
+        int anchors = 0;
 
         for (; index < ct; ++index)
+        {
+            ZoneInfo zone = zones[index];
             AddZone(index);
 
-        UncreatedZoneEditor.Instance.LogInfo(nameof(ZoneNetIdDatabase), $"Assigned NetIds for {index.Format()} zone{index.S()}.");
+            int anchorCt = Math.Min(byte.MaxValue, zone.Anchors.Count);
+            for (int anchorIndex = 0; anchorIndex < anchorCt; ++anchorIndex)
+            {
+                AddAnchor(new ZoneAnchorIdentifier(index, anchorIndex));
+            }
+
+            anchors += anchorCt;
+        }
+
+        UncreatedZoneEditor.Instance.LogInfo(nameof(ZoneNetIdDatabase), $"Assigned NetIds for {index.Format()} zone{index.S()} and {anchors.Format()} anchor{anchors.S()}.");
     }
 #endif
 
@@ -311,10 +323,30 @@ public sealed class ZoneNetIdDatabase : IReplicatedLevelDataSource<ZoneNetIdRepl
 
         for (int i = 0; i < NetIds.Count; ++i)
         {
-            if (NetIds[i].IsNull())
+            NetId netId = NetIds[i];
+            if (netId.IsNull())
                 continue;
 
-            NetIdRegistry.Assign(NetIds[i], (byte)i);
+            NetIdRegistry.Assign(netId, (byte)i);
+            if (i < EditorZones.Instance.ZoneList.Count)
+            {
+                EditorZones.Instance.ZoneList[i].NetId = netId;
+            }
+        }
+
+        int ct = Math.Min(data.AnchorNetIds.Length, data.AnchorIds.Length);
+        for (int i = 0; i < ct; ++i)
+        {
+            NetId netId = new NetId(data.AnchorNetIds[i]);
+            if (netId.IsNull())
+                continue;
+
+            ZoneAnchorIdentifier id = new ZoneAnchorIdentifier(data.AnchorIds[i]);
+            NetIdRegistry.Assign(netId, id);
+            if (id.CheckSafe())
+            {
+                EditorZones.Instance.ZoneList[id.ZoneIndex].Anchors[id.AnchorIndex].NetId = netId;
+            }
         }
     }
 
@@ -324,12 +356,34 @@ public sealed class ZoneNetIdDatabase : IReplicatedLevelDataSource<ZoneNetIdRepl
     {
         uint[] netIds = new uint[Math.Min(ushort.MaxValue, NetIds.Count)];
 
+        List<ZoneInfo> zones = EditorZones.Instance.ZoneList;
+        int totalAnchors = 0;
         for (int i = 0; i < netIds.Length; ++i)
+        {
+            totalAnchors += Math.Min(zones[i].Anchors.Count, byte.MaxValue);
             netIds[i] = NetIds[i].id;
+        }
+
+        uint[] anchorNetIds = new uint[totalAnchors];
+        int[] anchorIds = new int[totalAnchors];
+        totalAnchors = -1;
+        for (int i = 0; i < netIds.Length; ++i)
+        {
+            ZoneInfo zone = zones[i];
+            int ct = Math.Min(zone.Anchors.Count, byte.MaxValue);
+            for (int j = 0; j < ct; ++j)
+            {
+                ZoneAnchor anchor = zone.Anchors[j];
+                anchorNetIds[++totalAnchors] = anchor.NetId.id;
+                anchorIds[totalAnchors] = new ZoneAnchorIdentifier(i, j).Raw;
+            }
+        }
 
         return new ZoneNetIdReplicatedLevelData
         {
-            NetIds = netIds
+            NetIds = netIds,
+            AnchorNetIds = anchorNetIds,
+            AnchorIds = anchorIds
         };
     }
 
@@ -338,13 +392,17 @@ public sealed class ZoneNetIdDatabase : IReplicatedLevelDataSource<ZoneNetIdRepl
     public void WriteData(ByteWriter writer, ZoneNetIdReplicatedLevelData data)
     {
         writer.Write(data.NetIds);
+        writer.Write(data.AnchorNetIds);
+        writer.Write(data.AnchorIds);
     }
 
     public ZoneNetIdReplicatedLevelData ReadData(ByteReader reader, ushort dataVersion)
     {
         return new ZoneNetIdReplicatedLevelData
         {
-            NetIds = reader.ReadUInt32Array()
+            NetIds = reader.ReadUInt32Array(),
+            AnchorNetIds = reader.ReadUInt32Array(),
+            AnchorIds = reader.ReadInt32Array()
         };
     }
 }
@@ -353,4 +411,6 @@ public sealed class ZoneNetIdDatabase : IReplicatedLevelDataSource<ZoneNetIdRepl
 public class ZoneNetIdReplicatedLevelData
 {
     public uint[] NetIds { get; set; }
+    public int[] AnchorIds { get; set; }
+    public uint[] AnchorNetIds { get; set; }
 }

@@ -34,7 +34,13 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>
         { "TooManyZones", "There can not be more than {0} zones in the level." },
         { "TooManyZoneAnchors", "There can not be more than {0} anchors in a single zone." },
         { "ZoneToolButton", "Zone Editor" },
-        { "ZoneToolButtonTooltip", "Tool used to edit zones for Uncreated Warfare." }
+        { "ZoneToolButtonTooltip", "Tool used to edit zones for Uncreated Warfare." },
+        { "ShapeAABB", "Rectangle" },
+        { "ShapeCylinder", "Circle" },
+        { "ShapeSphere", "Sphere" },
+        { "ShapePolygon", "Polygon" },
+        { "ShapeField", "Shape" },
+        { "ShapeTooltip", "Shape of the border of the zone." }
     };
 
 #if DEBUG
@@ -53,8 +59,6 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>
 
         AssemblyName assemblyName = Assembly.Assembly.GetName();
         this.LogInfo(Translations.Translate("LoadText", assemblyName.Name, assemblyName.Version.ToString(3), "DanielWillett"));
-
-        this.LogInfo(Configuration.HelloProperty ?? "Hello config is null.");
 
         ZoneNetIdDatabase.Init();
     }

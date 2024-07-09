@@ -1,4 +1,6 @@
-﻿using DevkitServer.Multiplayer.Networking;
+﻿using DevkitServer;
+using DevkitServer.Multiplayer.Networking;
+using SDG.Framework.Devkit;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -6,7 +8,7 @@ using System.IO;
 using System.Linq;
 using Uncreated.ZoneEditor.Multiplayer;
 #if CLIENT
-using DevkitServer;
+using Uncreated.ZoneEditor.Objects;
 #elif SERVER
 using DevkitServer.API.UI;
 #endif
@@ -14,21 +16,24 @@ using DevkitServer.API.UI;
 namespace Uncreated.ZoneEditor.Data;
 
 [EarlyTypeInit]
-public sealed class EditorZones : IDisposable
+public sealed class EditorZones : IDisposable, IDirtyable
 {
     [UsedImplicitly]
-    private static readonly NetCall<Vector3, Vector3, string, bool, string, ZoneShape> SendRequestInstantiation
-        = new NetCall<Vector3, Vector3, string, bool, string, ZoneShape>(new Guid("f8a68bb92b094b6d8ef583c4069b826a"));
+    private static readonly NetCall<Vector3, Vector3, float, string, bool, string, ZoneShape> SendRequestInstantiation
+        = new NetCall<Vector3, Vector3, float, string, bool, string, ZoneShape>(new Guid("f8a68bb92b094b6d8ef583c4069b826a"));
     
     [UsedImplicitly]
-    private static readonly NetCall<Vector3, Vector3, string, bool, string, ZoneShape, ulong, NetId> SendInstantiation
-        = new NetCall<Vector3, Vector3, string, bool, string, ZoneShape, ulong, NetId>(new Guid("e20a506a94a84024a6a0e2f5eff05aca"));
+    private static readonly NetCall<Vector3, Vector3, float, string, bool, string, ZoneShape, ulong, NetId> SendInstantiation
+        = new NetCall<Vector3, Vector3, float, string, bool, string, ZoneShape, ulong, NetId>(new Guid("e20a506a94a84024a6a0e2f5eff05aca"));
     
     [UsedImplicitly]
     private static readonly NetCall<Vector3, NetId, NetId> SendRequestAnchorInstantiation = new NetCall<Vector3, NetId, NetId>(new Guid("0aca52c1351045b194086e64edce4cf6"));
     
     [UsedImplicitly]
     private static readonly NetCall<Vector3, NetId, uint[], ulong, NetId> SendAnchorInstantiation = new NetCall<Vector3, NetId, uint[], ulong, NetId>(new Guid("81ffb3936498482eb03cfc2ea7ccfe55"));
+
+    [UsedImplicitly]
+    private static readonly NetCall<NetId, Vector3> SendMoveAnchor = new NetCall<NetId, Vector3>(new Guid("ea43360070774da6b81dc1d7d01e06c5"));
 
 #if CLIENT
     internal static readonly CachedMulticastEvent<ZoneAddRequested> EventOnZoneAddRequested = new CachedMulticastEvent<ZoneAddRequested>(typeof(EditorZones), nameof(OnZoneAddRequested));
@@ -41,6 +46,8 @@ public sealed class EditorZones : IDisposable
 #endif
     private static readonly CachedMulticastEvent<ZoneAdded> EventOnZoneAdded = new CachedMulticastEvent<ZoneAdded>(typeof(EditorZones), nameof(OnZoneAdded));
     private static readonly CachedMulticastEvent<ZoneAnchorAdded> EventOnZoneAnchorAdded = new CachedMulticastEvent<ZoneAnchorAdded>(typeof(EditorZones), nameof(OnZoneAnchorAdded));
+    private static readonly CachedMulticastEvent<ZoneAnchorMoved> EventOnZoneAnchorMoved = new CachedMulticastEvent<ZoneAnchorMoved>(typeof(EditorZones), nameof(OnZoneAnchorMoved));
+    private static readonly CachedMulticastEvent<ZoneShapeChanged> EventOnZoneShapeChanged = new CachedMulticastEvent<ZoneShapeChanged>(typeof(EditorZones), nameof(OnZoneShapeChanged));
     private static readonly CachedMulticastEvent<ZoneRemoved> EventOnZoneRemoved = new CachedMulticastEvent<ZoneRemoved>(typeof(EditorZones), nameof(OnZoneRemoved));
     private static readonly CachedMulticastEvent<ZoneAnchorRemoved> EventOnZoneAnchorRemoved = new CachedMulticastEvent<ZoneAnchorRemoved>(typeof(EditorZones), nameof(OnZoneAnchorRemoved));
     private static readonly CachedMulticastEvent<ZoneIndexUpdated> EventOnZoneIndexUpdated = new CachedMulticastEvent<ZoneIndexUpdated>(typeof(EditorZones), nameof(OnZoneIndexUpdated));
@@ -49,10 +56,28 @@ public sealed class EditorZones : IDisposable
     internal readonly List<ZoneInfo> ZoneList = [ ];
     private ZoneJsonConfig? _zoneList;
 
+    private bool _isDirty;
+
+    /// <summary>
+    /// If saving needs to happen before quitting.
+    /// </summary>
+    /// <remarks>Part of the <see cref="IDirtyable"/> interface for <see cref="DirtyManager"/>.</remarks>
+    public bool isDirty
+    {
+        get => _isDirty;
+        set
+        {
+            if (isDirty == value) return;
+            _isDirty = value;
+            if (value) DirtyManager.markDirty(this);
+            else DirtyManager.markClean(this);
+        }
+    }
+
     /// <summary>
     /// Path to the file that stores zones.
     /// </summary>
-    public string FilePath => Path.GetFullPath(LevelSavedata.transformName(Level.info.name + "/zones.json"));
+    public string FilePath => Path.GetFullPath(Level.info.path + "/Uncreated/zones.json");
     
     /// <summary>
     /// List of all loaded zones.
@@ -80,6 +105,24 @@ public sealed class EditorZones : IDisposable
     {
         add => EventOnZoneAnchorAdded.Add(value);
         remove => EventOnZoneAnchorAdded.Remove(value);
+    }
+
+    /// <summary>
+    /// Invoked when a zone anchor is moved locally.
+    /// </summary>
+    public event ZoneAnchorMoved OnZoneAnchorMoved
+    {
+        add => EventOnZoneAnchorMoved.Add(value);
+        remove => EventOnZoneAnchorMoved.Remove(value);
+    }
+
+    /// <summary>
+    /// Invoked when a zone's shape is changed locally.
+    /// </summary>
+    public event ZoneShapeChanged OnZoneShapeChanged
+    {
+        add => EventOnZoneShapeChanged.Add(value);
+        remove => EventOnZoneShapeChanged.Remove(value);
     }
 
     /// <summary>
@@ -182,29 +225,42 @@ public sealed class EditorZones : IDisposable
     /// The index of the selected zone, or -1.
     /// </summary>
     public int SelectedZoneIndex { get; private set; } = -1;
-    
+
     /// <summary>
     /// The index of the selected zone, or -1.
     /// </summary>
-    public int SelectedZoneAnchorIndex { get; private set; } = 0;
+    public int SelectedZoneAnchorIndex { get; private set; } = -1;
 
     /// <summary>
     /// The zone that's currently selected, or <see langword="null"/>.
     /// </summary>
     public ZoneInfo? SelectedZone => SelectedZoneIndex < 0 ? null : ZoneList[SelectedZoneIndex];
+
+    /// <summary>
+    /// If the spawn arrow is the one selected.
+    /// </summary>
+    public bool IsSpawnPositionSelected { get; internal set; }
 #endif
 
     private EditorZones()
     {
         LoadedZones = new ReadOnlyCollection<ZoneInfo>(ZoneList);
 
-        SaveManager.onPostSave += SaveZones;
+        Level.onLevelLoaded += OnLevelLoaded;
     }
 
-    // called in unload
+    // called in Unload().
     void IDisposable.Dispose()
     {
-        SaveManager.onPostSave -= SaveZones;
+        Level.onLevelLoaded -= OnLevelLoaded;
+    }
+
+    private void OnLevelLoaded(int level)
+    {
+        if (level == Level.BUILD_INDEX_GAME)
+        {
+            ReadZones();
+        }
     }
 
     /// <summary>
@@ -230,8 +286,23 @@ public sealed class EditorZones : IDisposable
         int index = ZoneList.Count;
         ZoneList.Add(zoneInfo);
 
-        EventOnZoneAdded.TryInvoke(zoneInfo, index);
+#if CLIENT
+        if (Level.isEditor)
+        {
+            AddAnchorComponents(zoneInfo);
+        }
+#endif
 
+        UncreatedZoneEditor.Instance.LogDebug($"Added new zone at index {index.Format()}: {zoneInfo.Name.Format()} at {zoneInfo.Center.Format()}.");
+
+        EventOnZoneAdded.TryInvoke(zoneInfo, index);
+        
+        for (int i = 0; i < zoneInfo.Anchors.Count; ++i)
+        {
+            EventOnZoneAnchorAdded.TryInvoke(zoneInfo.Anchors[i], new ZoneAnchorIdentifier(index, i));
+        }
+
+        isDirty = true;
         return index;
     }
 
@@ -266,11 +337,6 @@ public sealed class EditorZones : IDisposable
         if (zone.Anchors.Count >= byte.MaxValue)
             throw new InvalidOperationException($"There are already too many zone anchors in the zone ({byte.MaxValue}).");
 
-        if (!ZoneNetIdDatabase.TryGetZoneNetId(zoneIndex, out NetId zoneNetId))
-        {
-            throw new ArgumentException($"Unable to find NetId of zone at {zoneIndex}.", nameof(zoneIndex));
-        }
-
         if (anchorIndex < 0)
             anchorIndex = zone.Anchors.Count;
         else if (anchorIndex > zone.Anchors.Count)
@@ -278,10 +344,168 @@ public sealed class EditorZones : IDisposable
 
         zone.AddAnchorIntl(anchor, anchorIndex);
 
+        return ApplyAddAnchorIntl(anchor, zoneIndex, zone, anchorIndex);
+    }
+
+    private ZoneAnchorIdentifier ApplyAddAnchorIntl(ZoneAnchor anchor, int zoneIndex, ZoneInfo zone, int anchorIndex)
+    {
         ZoneAnchorIdentifier id = new ZoneAnchorIdentifier(zoneIndex, anchorIndex);
+
+        UncreatedZoneEditor.Instance.LogDebug($"Added new zone anchor at index {id.Format()}: {zone.Name.Format()} at {anchor.Position.Format()}.");
+
+        for (int i = zone.Anchors.Count - 1; i > anchorIndex; --i)
+        {
+            ZoneAnchor affectedAnchor = zone.Anchors[i];
+            affectedAnchor.Index = i;
+#if CLIENT
+            if (affectedAnchor.Component != null)
+            {
+                affectedAnchor.Component.gameObject.name = $"{zone.Name}[{i}]";
+                affectedAnchor.Component.transform.SetSiblingIndex(i);
+            }
+#endif
+
+            EventOnZoneAnchorIndexUpdated.TryInvoke(affectedAnchor, new ZoneAnchorIdentifier(zoneIndex, i), new ZoneAnchorIdentifier(zoneIndex, i - 1));
+        }
+
         EventOnZoneAnchorAdded.TryInvoke(anchor, id);
 
+        isDirty = true;
         return id;
+    }
+
+    /// <summary>
+    /// Locally set the position of an anchor.
+    /// </summary>
+    /// <remarks>Non-replicating.</remarks>
+    /// <param name="newLocalPosition">Local position of the anchor relative to the zone center.</param>
+    /// <exception cref="NotSupportedException">Not on main thread.</exception>
+    /// <exception cref="ArgumentException">There is no zone or anchor at the given indices.</exception>
+    public void MoveAnchorLocal(ZoneAnchorIdentifier anchor, Vector3 newLocalPosition)
+    {
+        ThreadUtil.assertIsGameThread();
+
+        if (!anchor.CheckSafe())
+        {
+            throw new ArgumentException($"Anchor {anchor} does not exist.");
+        }
+
+        ZoneInfo zone = ZoneList[anchor.ZoneIndex];
+        ZoneAnchor zoneAnchor = zone.Anchors[anchor.AnchorIndex];
+
+        Vector3 oldPosition = zoneAnchor.Position - zone.Center;
+
+#if CLIENT
+        if (zoneAnchor.Component != null)
+        {
+            zoneAnchor.Component.transform.localPosition = newLocalPosition;
+        }
+#endif
+
+        zoneAnchor.Position = zone.Center + newLocalPosition;
+        zoneAnchor.TemporaryPosition = zoneAnchor.Position;
+
+        UncreatedZoneEditor.Instance.LogDebug($"Moved zone anchor at index {anchor.Format()}: {zone.Name.Format()} at ({oldPosition.Format()} -> {newLocalPosition.Format()}).");
+
+        //switch (zone.Shape)
+        //{
+        //    case ZoneShape.Cylinder:
+        // todo
+        //}
+
+        EventOnZoneAnchorMoved.TryInvoke(zoneAnchor, anchor, newLocalPosition, oldPosition);
+
+        isDirty = true;
+    }
+
+    public void SetZoneShapeLocal(int zoneIndex, ZoneShape shape)
+    {
+        ThreadUtil.assertIsGameThread();
+
+        if (zoneIndex < 0 || zoneIndex >= ZoneList.Count)
+        {
+            throw new ArgumentException($"Zone at {zoneIndex} does not exist.");
+        }
+
+        ZoneInfo zone = ZoneList[zoneIndex];
+        ZoneShape oldShape = zone.Shape;
+
+        if (oldShape == shape)
+        {
+            return;
+        }
+
+        zone.Shape = shape;
+
+        EventOnZoneShapeChanged.TryInvoke(zone, zoneIndex, shape, oldShape);
+
+        isDirty = true;
+    }
+
+    /// <summary>
+    /// Set the position of an anchor and replciate to remotes.
+    /// </summary>
+    /// <remarks>Replicates to remotes.</remarks>
+    /// <param name="newLocalPosition">Local position of the anchor relative to the zone center.</param>
+    /// <exception cref="NotSupportedException">Not on main thread.</exception>
+    /// <exception cref="ArgumentException">There is no zone or anchor at the given indices.</exception>
+    /// <exception cref="NoPermissionsException">Missing client-side permission for <see cref="UncreatedZoneEditor.Permissions.EditZones"/>.</exception>
+    public void MoveAnchor(ZoneAnchorIdentifier anchor, Vector3 newLocalPosition)
+    {
+        ThreadUtil.assertIsGameThread();
+
+#if CLIENT
+        CheckEditPermission();
+#endif
+        MoveAnchorLocal(anchor, newLocalPosition);
+
+        if (!DevkitServerModule.IsEditing)
+        {
+            return;
+        }
+
+        if (!ZoneNetIdDatabase.TryGetAnchorNetId(anchor, out NetId netId))
+        {
+            UncreatedZoneEditor.Instance.LogWarning(nameof(EditorZones), $"Failed to find NetId for zone anchor {anchor.Format()}. Did not replicate in MoveAnchor({anchor.Format()}, {newLocalPosition.Format()}).");
+            return;
+        }
+
+#if CLIENT
+        SendMoveAnchor.Invoke(netId, newLocalPosition);
+#else
+        SendMoveAnchor.Invoke(DevkitServerUtility.GetAllConnections(), netId, newLocalPosition);
+#endif
+    }
+
+    [NetCall(NetCallSource.FromEither, "ea43360070774da6b81dc1d7d01e06c5")]
+    private static void ReceiveMoveAnchor(MessageContext ctx, NetId anchorNetId, Vector3 newLocalPosition)
+    {
+#if SERVER
+        EditorUser? user = ctx.GetCaller();
+        if (user == null)
+        {
+            UncreatedZoneEditor.Instance.LogWarning(nameof(EditorZones), "Unknown user invoking ReceiveMoveAnchor.");
+            ctx.Acknowledge(StandardErrorCode.NoPermissions);
+            return;
+        }
+
+        if (!UncreatedZoneEditor.Permissions.EditZones.Has(user.SteamId.m_SteamID))
+        {
+            UncreatedZoneEditor.Instance.LogWarning(nameof(EditorZones), $"No permissions for user {user.SteamId.Format()} invoking ReceiveMoveAnchor.");
+            EditorMessage.SendNoPermissionMessage(user, UncreatedZoneEditor.Permissions.EditZones);
+            ctx.Acknowledge(StandardErrorCode.NoPermissions);
+            return;
+        }
+#endif
+
+        if (!ZoneNetIdDatabase.TryGetAnchor(anchorNetId, out ZoneAnchorIdentifier anchor) || !anchor.CheckSafe())
+        {
+            UncreatedZoneEditor.Instance.LogWarning(nameof(EditorZones), $"Anchor not found by NetId {anchorNetId.Format()} in ReceiveMoveAnchor.");
+            ctx.Acknowledge(StandardErrorCode.NotFound);
+            return;
+        }
+
+        Instance.MoveAnchorLocal(anchor, newLocalPosition);
     }
 
     /// <summary>
@@ -310,6 +534,21 @@ public sealed class EditorZones : IDisposable
 
         ZoneList.RemoveAt(zoneIndex);
 
+#if CLIENT
+        if (zone.Component is not null)
+        {
+            if (zone.Component != null)
+                Object.Destroy(zone.Component.gameObject);
+
+            zone.Component = null;
+        }
+
+        foreach (ZoneAnchor anchor in zone.Anchors)
+        {
+            anchor.Component = null;
+        }
+#endif
+
         EventOnZoneRemoved.TryInvoke(zone, zoneIndex);
 
         for (int i = zoneIndex; i < ZoneList.Count; ++i)
@@ -319,6 +558,7 @@ public sealed class EditorZones : IDisposable
             EventOnZoneIndexUpdated.TryInvoke(affectedZone, i, i + 1);
         }
 
+        isDirty = true;
         return true;
     }
 
@@ -341,16 +581,34 @@ public sealed class EditorZones : IDisposable
 
         zone.RemoveAnchorIntl(anchorIndex);
 
+#if CLIENT
+        if (zoneAnchor.Component is not null)
+        {
+            if (zoneAnchor.Component != null)
+                Object.Destroy(zoneAnchor.Component.gameObject);
+
+            zoneAnchor.Component = null;
+        }
+#endif
+
         EventOnZoneAnchorRemoved.TryInvoke(zoneAnchor, anchor);
 
         for (int i = anchorIndex; i < zone.Anchors.Count; ++i)
         {
             ZoneAnchor affectedAnchor = zone.Anchors[i];
             affectedAnchor.Index = i;
+#if CLIENT
+            if (affectedAnchor.Component != null)
+            {
+                affectedAnchor.Component.gameObject.name = $"{zone.Name}[{i}]";
+                affectedAnchor.Component.transform.SetSiblingIndex(i);
+            }
+#endif
 
             EventOnZoneAnchorIndexUpdated.TryInvoke(affectedAnchor, new ZoneAnchorIdentifier(zoneIndex, i), new ZoneAnchorIdentifier(zoneIndex, i + 1));
         }
 
+        isDirty = true;
         return true;
     }
 
@@ -360,7 +618,7 @@ public sealed class EditorZones : IDisposable
     /// Try to select the given <paramref name="zone"/>, invoking <see cref="OnZoneSelectionChangeRequested"/>.
     /// </summary>
     /// <exception cref="NotSupportedException">Not on main thread.</exception>
-    public bool RequestSelectZone(ZoneInfo? zone, int anchorIndex = 0)
+    public bool RequestSelectZone(ZoneInfo? zone, int anchorIndex = -1)
     {
         if (zone == null)
         {
@@ -376,7 +634,7 @@ public sealed class EditorZones : IDisposable
     /// Force select the given <paramref name="zone"/>.
     /// </summary>
     /// <exception cref="NotSupportedException">Not on main thread.</exception>
-    public bool SelectZone(ZoneInfo? zone, int anchorIndex = 0)
+    public bool SelectZone(ZoneInfo? zone, int anchorIndex = -1)
     {
         if (zone == null)
         {
@@ -392,7 +650,7 @@ public sealed class EditorZones : IDisposable
     /// Try to select the zone at index <paramref name="zoneIndex"/> in <see cref="LoadedZones"/>, invoking <see cref="OnZoneSelectionChangeRequested"/>.
     /// </summary>
     /// <exception cref="NotSupportedException">Not on main thread.</exception>
-    public bool RequestSelectZone(int zoneIndex, int anchorIndex = 0)
+    public bool RequestSelectZone(int zoneIndex, int anchorIndex = -1)
     {
         if (zoneIndex < 0)
         {
@@ -417,7 +675,8 @@ public sealed class EditorZones : IDisposable
 
         if (!shouldAllow)
             return false;
-        
+
+        IsSpawnPositionSelected = false;
         SelectedZoneIndex = zoneIndex;
         SelectedZoneAnchorIndex = anchorIndex;
         EventOnZoneSelectionChanged.TryInvoke(zone, zoneIndex, anchorIndex, old, oldIndex, oldAnchor);
@@ -428,7 +687,7 @@ public sealed class EditorZones : IDisposable
     /// Force select the zone at index <paramref name="zoneIndex"/> in <see cref="LoadedZones"/>.
     /// </summary>
     /// <exception cref="NotSupportedException">Not on main thread.</exception>
-    public bool SelectZone(int zoneIndex, int anchorIndex = 0)
+    public bool SelectZone(int zoneIndex, int anchorIndex = -1)
     {
         if (zoneIndex < 0)
         {
@@ -440,6 +699,7 @@ public sealed class EditorZones : IDisposable
         if (zoneIndex < 0 || zoneIndex >= ZoneList.Count || SelectedZoneIndex == zoneIndex)
             return false;
 
+        IsSpawnPositionSelected = false;
         ZoneInfo zone = ZoneList[zoneIndex];
         ZoneInfo? old = SelectedZone;
         int oldIndex = SelectedZoneIndex;
@@ -465,14 +725,15 @@ public sealed class EditorZones : IDisposable
         int oldIndex = SelectedZoneIndex;
         int oldAnchor = SelectedZoneAnchorIndex;
         bool shouldAllow = true;
-        EventOnZoneSelectionChangeRequested.TryInvoke(null, -1, 0, old, oldIndex, oldAnchor, ref shouldAllow);
+        EventOnZoneSelectionChangeRequested.TryInvoke(null, -1, -1, old, oldIndex, oldAnchor, ref shouldAllow);
 
         if (!shouldAllow)
             return false;
 
+        IsSpawnPositionSelected = false;
         SelectedZoneIndex = -1;
-        SelectedZoneAnchorIndex = 0;
-        EventOnZoneSelectionChanged.TryInvoke(null, -1, 0, old, oldIndex, oldAnchor);
+        SelectedZoneAnchorIndex = -1;
+        EventOnZoneSelectionChanged.TryInvoke(null, -1, -1, old, oldIndex, oldAnchor);
         return true;
     }
 
@@ -491,7 +752,7 @@ public sealed class EditorZones : IDisposable
         int oldIndex = SelectedZoneIndex;
         int oldAnchor = SelectedZoneAnchorIndex;
         SelectedZoneIndex = -1;
-        EventOnZoneSelectionChanged.TryInvoke(null, -1, 0, old, oldIndex, oldAnchor);
+        EventOnZoneSelectionChanged.TryInvoke(null, -1, -1, old, oldIndex, oldAnchor);
         return true;
     }
 
@@ -500,12 +761,12 @@ public sealed class EditorZones : IDisposable
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when not on a DevkitServer server.</exception>
     /// <exception cref="NotSupportedException">Not on main thread.</exception>
-    public void RequestZoneInstantiation(string name, ZoneShape shape, Vector3 center, Vector3 spawn, string? shortName = null)
+    public void RequestZoneInstantiation(string name, ZoneShape shape, Vector3 center, Vector3 spawn, float height, string? shortName = null)
     {
         ThreadUtil.assertIsGameThread();
 
         DevkitServerModule.AssertIsDevkitServerClient();
-        SendRequestInstantiation.Invoke(center, spawn, name, shortName == null, shortName ?? string.Empty, shape);
+        SendRequestInstantiation.Invoke(center, spawn, height, name, shortName == null, shortName ?? string.Empty, shape);
     }
 
     /// <summary>
@@ -554,7 +815,9 @@ public sealed class EditorZones : IDisposable
             Name = name,
             ShortName = isShortNameNull ? null : shortName,
             Center = center,
+            TemporaryCenter = center,
             Spawn = spawn,
+            TemporarySpawn = spawn,
             Creator = new CSteamID(creator),
             Shape = shape,
             NetId = netId
@@ -596,9 +859,16 @@ public sealed class EditorZones : IDisposable
         if (index > zone.Anchors.Count)
             index = zone.Anchors.Count;
 
-        ZoneAnchor anchor = new ZoneAnchor(zone, -1) { NetId = anchorNetId, Position = point };
+        ZoneAnchor anchor = new ZoneAnchor(zone, -1) { NetId = anchorNetId, Position = point, TemporaryPosition = point };
         zone.AddAnchorIntl(anchor, index);
 
+        for (int i = zone.Anchors.Count - 1; i > index; --i)
+        {
+            ZoneAnchor affectedAnchor = zone.Anchors[i];
+            affectedAnchor.Index = i;
+            EventOnZoneAnchorIndexUpdated.TryInvoke(affectedAnchor, new ZoneAnchorIdentifier(zoneIndex, i), new ZoneAnchorIdentifier(zoneIndex, i - 1));
+        }
+        
         bool anyMismatch = zone.Anchors.Count != anchorNetIdsOrder.Length;
         if (!anyMismatch)
         {
@@ -667,6 +937,16 @@ public sealed class EditorZones : IDisposable
             }
         }
 
+        for (int i = 0; i < zone.Anchors.Count; ++i)
+        {
+            ZoneAnchor affectedAnchor = zone.Anchors[i];
+            if (affectedAnchor.Component == null)
+                continue;
+
+            affectedAnchor.Component.gameObject.name = $"{zone.Name}[{i}]";
+            affectedAnchor.Component.transform.SetSiblingIndex(i);
+        }
+
         ZoneAnchorIdentifier id = new ZoneAnchorIdentifier(zoneIndex, anchor.Index);
 
         EventOnZoneAnchorAdded.TryInvoke(anchor, id);
@@ -678,12 +958,13 @@ public sealed class EditorZones : IDisposable
 
         // todo SyncIfAuthority(zoneIndex);
 
+        Instance.isDirty = true;
         return StandardErrorCode.Success;
     }
 #endif
 #if SERVER
     [NetCall(NetCallSource.FromClient, "f8a68bb92b094b6d8ef583c4069b826a")]
-    internal static void ReceiveInstantiationRequest(MessageContext ctx, Vector3 center, Vector3 spawn, string name, bool shortNameIsNull, string? shortName, ZoneShape shape)
+    internal static void ReceiveInstantiationRequest(MessageContext ctx, Vector3 center, Vector3 spawn, float height, string name, bool shortNameIsNull, string? shortName, ZoneShape shape)
     {
         if (shortNameIsNull)
             shortName = null;
@@ -717,7 +998,8 @@ public sealed class EditorZones : IDisposable
             Shape = shape,
             Center = center,
             Spawn = spawn,
-            Creator = user.SteamId
+            Creator = user.SteamId,
+            Height = float.IsFinite(height) ? height : 128f
         };
 
         bool shouldAllow = true;
@@ -805,7 +1087,7 @@ public sealed class EditorZones : IDisposable
     /// <remarks>Replicates to clients.</remarks>
     /// <param name="zoneInfo">Information about the new zone to add.</param>
     /// <exception cref="NotSupportedException">Not on main thread.</exception>
-    /// <exception cref="InvalidOperationException">There are already too many zones in the level.</exception>
+    /// <exception cref="InvalidOperationException">There are already too many zones in the level. -OR- There are too many anchors in this zone.</exception>
     /// <exception cref="ArgumentException">This zone is already added to the list.</exception>
     /// <returns>The index of the new zone.</returns>
     public int AddZone(ZoneInfo zoneInfo, EditorUser? owner = null)
@@ -823,6 +1105,9 @@ public sealed class EditorZones : IDisposable
 
         if (ZoneList.Count >= ushort.MaxValue)
             throw new InvalidOperationException($"There are already too many zones in the level ({ushort.MaxValue}).");
+
+        if (zoneInfo.Anchors.Count > byte.MaxValue)
+            throw new InvalidOperationException($"There are too many anchors on this zone (max: {byte.MaxValue}).");
 
         zoneInfo.Name ??= string.Empty;
 
@@ -847,14 +1132,20 @@ public sealed class EditorZones : IDisposable
             list = DevkitServerUtility.GetAllConnections();
         else
         {
-            ctx.ReplyLayered(SendInstantiation, zoneInfo.Center, zoneInfo.Spawn, zoneInfo.Name, zoneInfo.ShortName == null, zoneInfo.ShortName ?? string.Empty, zoneInfo.Shape, owner, netId);
+            ctx.ReplyLayered(SendInstantiation, zoneInfo.Center, zoneInfo.Spawn, zoneInfo.Height, zoneInfo.Name, zoneInfo.ShortName == null, zoneInfo.ShortName ?? string.Empty, zoneInfo.Shape, owner, netId);
             list = DevkitServerUtility.GetAllConnections(ctx.Connection);
         }
 
-        SendInstantiation.Invoke(list, zoneInfo.Center, zoneInfo.Spawn, zoneInfo.Name, zoneInfo.ShortName == null, zoneInfo.ShortName ?? string.Empty, zoneInfo.Shape, owner, netId);
+        SendInstantiation.Invoke(list, zoneInfo.Center, zoneInfo.Spawn, zoneInfo.Height, zoneInfo.Name, zoneInfo.ShortName == null, zoneInfo.ShortName ?? string.Empty, zoneInfo.Shape, owner, netId);
+
+        for (int i = 0; i < zoneInfo.Anchors.Count; ++i)
+        {
+            SendAnchor(zoneInfo, index, zoneInfo.Anchors[i], ctx, netId);
+        }
 
         // todo SyncIfAuthority(index);
 
+        isDirty = true;
         return index;
     }
 
@@ -902,6 +1193,11 @@ public sealed class EditorZones : IDisposable
             throw new ArgumentOutOfRangeException(nameof(anchorIndex), "Anchor index can not be more than the current anchor count.");
 
         zone.AddAnchorIntl(anchor, anchorIndex);
+
+        return SendAnchor(zone, zoneIndex, anchor, ctx, zoneNetId);
+    }
+    private ZoneAnchorIdentifier SendAnchor(ZoneInfo zone, int zoneIndex, ZoneAnchor anchor, MessageContext ctx, NetId zoneNetId)
+    {
         uint[] order = new uint[zone.Anchors.Count];
         for (int i = 0; i < order.Length; ++i)
         {
@@ -911,7 +1207,7 @@ public sealed class EditorZones : IDisposable
             order[i] = orderNetId.id;
         }
 
-        anchorIndex = anchor.Index;
+        int anchorIndex = anchor.Index;
 
         ZoneAnchorIdentifier anchorId = new ZoneAnchorIdentifier(zoneIndex, anchorIndex);
         EventOnZoneAnchorAdded.TryInvoke(anchor, anchorId);
@@ -935,7 +1231,15 @@ public sealed class EditorZones : IDisposable
 
         // todo SyncIfAuthority(zoneIndex);
 
+        isDirty = true;
         return anchorId;
+    }
+#endif
+#if CLIENT
+    internal static void CheckEditPermission()
+    {
+        if (DevkitServerModule.IsEditing && !UncreatedZoneEditor.Permissions.EditZones.Has())
+            throw new NoPermissionsException(UncreatedZoneEditor.Permissions.EditZones);
     }
 #endif
     internal static void InitializeZone(ZoneInfo zoneInfo, int zoneIndex,
@@ -952,6 +1256,34 @@ public sealed class EditorZones : IDisposable
         UncreatedZoneEditor.Instance.LogDebug(nameof(EditorZones), $"Assigned zone NetId: {zoneNetId.Format()} to {zoneInfo.Name.Format()}.");
     }
 
+    private void ClearZoneList()
+    {
+#if CLIENT
+        foreach (ZoneInfo zone in ZoneList)
+        {
+            if (zone.Component is not null)
+            {
+                if (zone.Component != null)
+                {
+                    Object.Destroy(zone.Component.gameObject);
+                }
+
+                zone.Component = null;
+            }
+
+            foreach (ZoneAnchor anchor in zone.Anchors)
+            {
+                // already destroyed by parent
+                anchor.Component = null;
+            }
+        }
+#endif
+
+        ZoneList.Clear();
+    }
+
+    void IDirtyable.save() => SaveZones();
+
     public void SaveZones()
     {
         ThreadUtil.assertIsGameThread();
@@ -960,27 +1292,70 @@ public sealed class EditorZones : IDisposable
             throw new InvalidOperationException("Only available when editing.");
 
         string path = FilePath;
+        string? dir = Path.GetDirectoryName(path);
+        if (dir != null)
+            Directory.CreateDirectory(dir);
         
         if (_zoneList == null || !_zoneList.File.Equals(path))
         {
             _zoneList = new ZoneJsonConfig(path) { ReadOnlyReloading = false };
         }
 
-        ZoneJsonList newConfig = _zoneList.Configuration;
+        ZoneJsonList newConfig = _zoneList.Configuration ?? new ZoneJsonList();
 
+        newConfig.Zones ??= [ ];
         newConfig.Zones.Clear();
-        newConfig.Zones.AddRange(ZoneList.Select(zone => new ZoneJsonModel
+        newConfig.Zones.AddRange(ZoneList.Select(CreateJsonModel));
+
+        _zoneList.Configuration = newConfig;
+        _zoneList.SaveConfig();
+    }
+    
+    private ZoneJsonModel CreateJsonModel(ZoneInfo zone)
+    {
+        ZoneJsonModel model = new ZoneJsonModel
         {
             Name = zone.Name,
             ShortName = zone.ShortName,
             Creator = zone.Creator,
             Center = zone.Center,
             Spawn = zone.Spawn,
-            Shape = zone.Shape
-        }));
+            Shape = zone.Shape,
+            Height = zone.Height
+        };
 
-        _zoneList.Configuration = newConfig;
-        _zoneList.SaveConfig();
+        switch (zone.Shape)
+        {
+            case ZoneShape.Cylinder or ZoneShape.Sphere:
+                model.CircleInfo = new ZoneJsonCircleInfo
+                {
+                    Radius = 10f
+                }; // todo
+                break;
+
+            case ZoneShape.AABB:
+                model.AABBInfo = new ZoneJsonAABBInfo
+                {
+                    Size = Vector3.one
+                }; // todo
+                break;
+
+            case ZoneShape.Polygon:
+                model.PolygonInfo = new ZoneJsonPolygonInfo
+                {
+                    Points = new Vector3[zone.Anchors.Count]
+                };
+
+                for (int i = 0; i < zone.Anchors.Count; i++)
+                {
+                    ZoneAnchor anchor = zone.Anchors[i];
+                    model.PolygonInfo.Points[i] = anchor.Position - zone.Center;
+                }
+
+                break;
+        }
+
+        return model;
     }
 
     public void ReadZones()
@@ -988,6 +1363,9 @@ public sealed class EditorZones : IDisposable
         ThreadUtil.assertIsGameThread();
 
         string path = FilePath;
+        string? dir = Path.GetDirectoryName(path);
+        if (dir != null)
+            Directory.CreateDirectory(dir);
 
         if (_zoneList == null || !_zoneList.File.Equals(path))
         {
@@ -996,7 +1374,7 @@ public sealed class EditorZones : IDisposable
 
         _zoneList.ReloadConfig();
 
-        ZoneList.Clear();
+        ClearZoneList();
 
         foreach (ZoneJsonModel model in _zoneList.Configuration.Zones)
         {
@@ -1005,23 +1383,121 @@ public sealed class EditorZones : IDisposable
                 Name = model.Name ?? model.ShortName ?? string.Empty,
                 ShortName = model.ShortName,
                 Center = model.Center,
+                TemporaryCenter = model.Center,
                 Spawn = model.Spawn,
+                TemporarySpawn = model.Spawn,
                 Creator = model.Creator,
-                Shape = model.Shape
+                Shape = model.Shape,
+                Height = model.Height
             };
 
+            if (!LoadAnchorInfo(model, zoneInfo))
+            {
+                continue;
+            }
+
+#if CLIENT
             if (Level.isEditor)
             {
-                LoadAnchorInfo(model, zoneInfo);
+                AddAnchorComponents(zoneInfo);
             }
+#endif
 
             ZoneList.Add(zoneInfo);
         }
     }
 
-    private void LoadAnchorInfo(ZoneJsonModel model, ZoneInfo zone)
+#if CLIENT
+    private static void AddAnchorComponents(ZoneInfo zone)
     {
-        
+        GameObject mainGameObject;
+        if (zone.Component == null)
+        {
+            mainGameObject = new GameObject(zone.Name);
+            zone.Component = mainGameObject.AddComponent<ZoneComponent>();
+        }
+        else
+        {
+            mainGameObject = zone.Component.gameObject;
+        }
+
+        zone.Component.Init(zone);
+
+        for (int i = 0; i < zone.Anchors.Count; i++)
+        {
+            ZoneAnchor anchor = zone.Anchors[i];
+            anchor.Index = i;
+            GameObject gameObject;
+            if (anchor.Component != null)
+            {
+                gameObject = anchor.Component.gameObject;
+                gameObject.name = $"{zone.Name}[{i}]";
+                gameObject.transform.SetParent(mainGameObject.transform, true);
+            }
+            else
+            {
+                gameObject = new GameObject($"{zone.Name}[{i}]")
+                {
+                    transform = { parent = mainGameObject.transform }
+                };
+
+                anchor.Component = gameObject.AddComponent<ZoneAnchorComponent>();
+            }
+
+            gameObject.transform.SetSiblingIndex(i);
+            anchor.Component.Init(anchor);
+        }
+
+        zone.Component.RebuildVisuals();
+    }
+#endif
+    private bool LoadAnchorInfo(ZoneJsonModel model, ZoneInfo zone)
+    {
+        Vector3 center = model.Center;
+     
+        switch (model.Shape)
+        {
+            case ZoneShape.Cylinder when model.CircleInfo != null:
+                float radius = model.CircleInfo.Radius;
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 0) { Position = new Vector3(center.x + radius, center.y, center.z + radius) }, 0, false);
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 1) { Position = new Vector3(center.x - radius, center.y, center.z - radius) }, 1, false);
+                return true;
+
+            case ZoneShape.Sphere when model.CircleInfo != null:
+                radius = model.CircleInfo.Radius;
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 0) { Position = new Vector3(center.x + radius, center.y + radius, center.z + radius) }, 0, false);
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 1) { Position = new Vector3(center.x - radius, center.y - radius, center.z - radius) }, 1, false);
+                return true;
+
+            case ZoneShape.AABB when model.AABBInfo != null:
+                Vector3 extents = model.AABBInfo.Size / 2f;
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 0) { Position = new Vector3(center.x + extents.x, center.y + extents.y, center.z + extents.z) }, 0, false);
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 1) { Position = new Vector3(center.x + extents.x, center.y + extents.y, center.z - extents.z) }, 1, false);
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 2) { Position = new Vector3(center.x + extents.x, center.y - extents.y, center.z + extents.z) }, 2, false);
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 3) { Position = new Vector3(center.x + extents.x, center.y - extents.y, center.z - extents.z) }, 3, false);
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 4) { Position = new Vector3(center.x - extents.x, center.y + extents.y, center.z + extents.z) }, 4, false);
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 5) { Position = new Vector3(center.x - extents.x, center.y + extents.y, center.z - extents.z) }, 5, false);
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 6) { Position = new Vector3(center.x - extents.x, center.y - extents.y, center.z + extents.z) }, 6, false);
+                zone.AddAnchorIntl(new ZoneAnchor(zone, 7) { Position = new Vector3(center.x - extents.x, center.y - extents.y, center.z - extents.z) }, 7, false);
+                return true;
+
+            case ZoneShape.Polygon when model.PolygonInfo != null:
+                for (int i = 0; i < model.PolygonInfo.Points.Length; i++)
+                {
+                    Vector3 point = model.PolygonInfo.Points[i];
+                    zone.AddAnchorIntl(new ZoneAnchor(zone, i) { Position = center + point }, i, false);
+                }
+
+                return true;
+
+            default:
+                UncreatedZoneEditor.Instance.LogWarning($"Zone {zone.Name.Format()} either has an invalid shape ({zone.Shape.Format()}) or is missing the associated data property for the shape.");
+                if (Level.isEditor)
+                {
+                    isDirty = true;
+                }
+                return false;
+        }
     }
 }
 
@@ -1039,6 +1515,8 @@ public delegate void ZoneAnchorAddRequested(ZoneAnchor anchorToAdd, EditorUser u
 
 public delegate void ZoneAdded(ZoneInfo newZone, int index);
 public delegate void ZoneAnchorAdded(ZoneAnchor newAnchor, ZoneAnchorIdentifier id);
+public delegate void ZoneAnchorMoved(ZoneAnchor anchor, ZoneAnchorIdentifier id, Vector3 newLocalPosition, Vector3 oldLocalPosition);
+public delegate void ZoneShapeChanged(ZoneInfo zone, int zoneIndex, ZoneShape newShape, ZoneShape oldShape);
 public delegate void ZoneRemoved(ZoneInfo removedZone, int oldIndex);
 public delegate void ZoneAnchorRemoved(ZoneAnchor removedAnchor, ZoneAnchorIdentifier oldId);
 public delegate void ZoneIndexUpdated(ZoneInfo affectedZone, int newIndex, int oldIndex);

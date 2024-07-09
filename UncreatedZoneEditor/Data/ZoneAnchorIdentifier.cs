@@ -26,6 +26,8 @@ public readonly struct ZoneAnchorIdentifier :
     /// </summary>
     public int AnchorIndex => unchecked ( (ushort)_data );
 
+    internal int Raw => _data;
+
     public ZoneAnchorIdentifier(int zoneIndex, int anchorIndex)
     {
         if (zoneIndex is > ushort.MaxValue or < ushort.MinValue)

@@ -17,13 +17,16 @@ public class ZoneEditorUI : SleekFullscreenBox
     public bool IsActive { get; private set; }
 
     private readonly SleekList<ZoneInfo> _zoneList;
-
+    private readonly SleekButtonState _shapeToggle;
+    public ZoneShape SelectedShape => (ZoneShape)_shapeToggle.state;
     internal ZoneEditorUI()
     {
         Instance = this;
 
         EditorZones.Instance.OnZoneAdded += UpdateZoneList;
         EditorZones.Instance.OnZoneRemoved += UpdateZoneList;
+        EditorZones.Instance.OnZoneSelectionChanged += SelectionChanged;
+        EditorZones.Instance.OnZoneShapeChanged += ShapeChanged;
 
         _zoneList = new SleekList<ZoneInfo>
         {
@@ -39,7 +42,57 @@ public class ZoneEditorUI : SleekFullscreenBox
         };
 
         _zoneList.SetData(EditorZones.Instance.ZoneList);
+
         AddChild(_zoneList);
+
+
+        _shapeToggle = new SleekButtonState
+        (
+            [
+                new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapeAABB")),
+                new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapeCylinder")),
+                new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapeSphere")),
+                new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapePolygon"))
+            ])
+        {
+            PositionScale_Y = 1f,
+            PositionOffset_X = 0f,
+            PositionOffset_Y = -30f,
+            SizeOffset_Y = 30f,
+            SizeOffset_X = 230f,
+            tooltip = UncreatedZoneEditor.Instance.Translations.Translate("ShapeTooltip")
+        };
+        _shapeToggle.onSwappedState += OnShapeToggled;
+        _shapeToggle.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("ShapeField"), ESleekSide.RIGHT);
+
+        AddChild(_shapeToggle);
+    }
+
+    private void ShapeChanged(ZoneInfo zone, int zoneIndex, ZoneShape newShape, ZoneShape oldShape)
+    {
+        if (zoneIndex == EditorZones.Instance.SelectedZoneIndex && IsActive)
+        {
+            _shapeToggle.state = (int)newShape;
+        }
+    }
+
+    private void SelectionChanged(ZoneInfo? newSelection, int newSlectionIndex, int newAnchorSelectionIndex, ZoneInfo? oldSelection, int oldSelectionIndex, int oldAnchorSelectionIndex)
+    {
+        if (newSelection != null && IsActive)
+        {
+            _shapeToggle.state = (int)newSelection.Shape;
+        }
+    }
+
+    private void OnShapeToggled(SleekButtonState button, int index)
+    {
+        ZoneInfo? selectedZone = EditorZones.Instance.SelectedZone;
+
+        if (selectedZone == null)
+            return;
+
+        // todo not local
+        EditorZones.Instance.SetZoneShapeLocal(EditorZones.Instance.SelectedZoneIndex, SelectedShape);
     }
 
     public override void OnDestroy()
@@ -101,7 +154,15 @@ public class ZoneEditorUI : SleekFullscreenBox
         }
 
         IsActive = true;
+        IsVisible = true;
         _zoneList.NotifyDataChanged();
+        ZoneInfo? selectedZone = EditorZones.Instance.SelectedZone;
+
+        if (selectedZone != null)
+        {
+            _shapeToggle.state = (int)selectedZone.Shape;
+        }
+
         UserControl.ActiveTool = new ZoneEditorTool();
         AnimateIntoView();
     }
@@ -116,6 +177,7 @@ public class ZoneEditorUI : SleekFullscreenBox
             UserControl.ActiveTool = null;
 
         IsActive = false;
+        IsVisible = false;
         AnimateOutOfView(1f, 0f);
     }
 }

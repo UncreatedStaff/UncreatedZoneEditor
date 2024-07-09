@@ -52,6 +52,9 @@ public class EditorLevelUIExtension : UIExtension
             SizeScale_Y = 1f
         };
 
+        _zoneEditorUI.IsVisible = false;
+        _container.AddChild(_zoneEditorUI);
+
         ZoneEditorUI.Instance = _zoneEditorUI;
     }
 
