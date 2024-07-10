@@ -43,16 +43,11 @@ public class EditorLevelUIExtension : UIExtension
 
         _zoneEditorUI = new ZoneEditorUI
         {
-            PositionOffset_X = 10f,
-            PositionOffset_Y = 10f,
             PositionScale_X = 1f,
-            SizeOffset_X = -20f,
-            SizeOffset_Y = -20f,
             SizeScale_X = 1f,
             SizeScale_Y = 1f
         };
 
-        _zoneEditorUI.IsVisible = false;
         _container.AddChild(_zoneEditorUI);
 
         ZoneEditorUI.Instance = _zoneEditorUI;

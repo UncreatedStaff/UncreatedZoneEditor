@@ -16,7 +16,7 @@
   <Import Project="Unturned.targets"/>
 
   <PropertyGroup>
-    <DevkitServerMinCompatabilityVersion>0.0.29</DevkitServerMinCompatabilityVersion>
+    <DevkitServerMinCompatabilityVersion>0.0.30</DevkitServerMinCompatabilityVersion>
   </PropertyGroup>
 
   <!-- Packages -->

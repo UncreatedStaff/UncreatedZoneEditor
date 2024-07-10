@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Reflection;
-using Uncreated.ZoneEditor.Data;
+using SDG.Framework.Devkit;
 using Uncreated.ZoneEditor.Multiplayer;
 #if CLIENT
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ using Uncreated.ZoneEditor.UI;
 namespace Uncreated.ZoneEditor;
 
 [PermissionPrefix("uncreated.zones")]
-public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>
+public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
 {
     public static class Permissions
     {
@@ -35,12 +35,30 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>
         { "TooManyZoneAnchors", "There can not be more than {0} anchors in a single zone." },
         { "ZoneToolButton", "Zone Editor" },
         { "ZoneToolButtonTooltip", "Tool used to edit zones for Uncreated Warfare." },
+        { "CreateZoneNoName", "Zones must have a non-whitespace name." },
         { "ShapeAABB", "Rectangle" },
         { "ShapeCylinder", "Circle" },
         { "ShapeSphere", "Sphere" },
         { "ShapePolygon", "Polygon" },
+
         { "ShapeField", "Shape" },
-        { "ShapeTooltip", "Shape of the border of the zone." }
+        { "ShapeTooltip", "Shape of the border of the zone." },
+
+        { "NameField", "Display Name" },
+        { "NameTooltip", "Display name of the zone." },
+
+        { "ShortNameField", "Short Name" },
+        { "ShortNameTooltip", "Shorter version of Name." },
+
+        { "MinHeightField", "Minimum Height" },
+        { "MinHeightTooltip", "The minimum Y value of the zone's effect." },
+        { "MinHeightInfinityTooltip", "Adds no limit to the minimum height." },
+        { "MinHeightInfinityToggle", "Infinite" },
+
+        { "MaxHeightField", "Maximum Height" },
+        { "MaxHeightTooltip", "The maximum Y value of the zone's effect." },
+        { "MaxHeightInfinityTooltip", "Adds no limit to the maximum height." },
+        { "MaxHeightInfinityToggle", "Infinite" },
     };
 
 #if DEBUG
@@ -48,6 +66,25 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>
 #else
     public override bool DeveloperMode => false;
 #endif
+
+
+    private bool _isDirty;
+
+    /// <summary>
+    /// If saving needs to happen before quitting.
+    /// </summary>
+    /// <remarks>Part of the <see cref="IDirtyable"/> interface for <see cref="DirtyManager"/>.</remarks>
+    public bool isDirty
+    {
+        get => _isDirty;
+        set
+        {
+            if (isDirty == value) return;
+            _isDirty = value;
+            if (value) DirtyManager.markDirty(this);
+            else DirtyManager.markClean(this);
+        }
+    }
 
     protected override void Load()
     {
@@ -72,7 +109,7 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>
         AssemblyName assemblyName = Assembly.Assembly.GetName();
         this.LogInfo(Translations.Translate("UnloadText", assemblyName.Name, assemblyName.Version.ToString(3), "DanielWillett"));
 
-        ((IDisposable)EditorZones.Instance).Dispose();
+        LevelZones.Unload();
     }
 
 #if CLIENT
@@ -91,4 +128,9 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>
         });
     }
 #endif
+
+    public void save()
+    {
+        LevelZones.SaveZones();
+    }
 }
