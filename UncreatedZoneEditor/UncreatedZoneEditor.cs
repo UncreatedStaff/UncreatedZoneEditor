@@ -59,6 +59,11 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "MaxHeightTooltip", "The maximum Y value of the zone's effect." },
         { "MaxHeightInfinityTooltip", "Adds no limit to the maximum height." },
         { "MaxHeightInfinityToggle", "Infinite" },
+
+        { "EditPolygonButton", "Edit Vertices" },
+        { "EditPolygonTooltip", "Edit vertex locations from a top-down view." },
+        { "StopEditPolygonButton", "Exit" },
+        { "EditPolygonNotSelected", "Must have exactly 1 polygon selected." },
     };
 
 #if DEBUG

@@ -1,8 +1,10 @@
 ﻿#if CLIENT
 using DanielWillett.ReflectionTools;
+using SDG.Framework.Devkit;
 using SDG.Framework.Landscapes;
 using System;
 using System.Globalization;
+using System.Linq;
 using Uncreated.ZoneEditor.Data;
 using Uncreated.ZoneEditor.Objects;
 using Uncreated.ZoneEditor.Tools;
@@ -27,6 +29,7 @@ public class ZoneEditorUI : SleekFullscreenBox
     private readonly ISleekFloat32Field _maxHeightField;
     private readonly ISleekSlider _maxHeightSlider;
     private readonly ISleekToggle _maxHeightInfinityToggle;
+    private readonly ISleekButton _polygonEditButton;
     private readonly SleekList<ZoneModel> _zoneList;
     private readonly SleekButtonState _shapeToggle;
     public ZoneShape SelectedShape
@@ -100,6 +103,20 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_zoneList);
 
+        _polygonEditButton = Glazier.Get().CreateButton();
+        _polygonEditButton.IsVisible = false;
+        _polygonEditButton.PositionScale_Y = 1f;
+        _polygonEditButton.PositionScale_X = 1f;
+        _polygonEditButton.PositionOffset_Y = -30f;
+        _polygonEditButton.PositionOffset_X = -230f;
+        _polygonEditButton.SizeOffset_Y = 30f;
+        _polygonEditButton.SizeOffset_X = 230f;
+        _polygonEditButton.Text = UncreatedZoneEditor.Instance.Translations.Translate("EditPolygonButton");
+        _polygonEditButton.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("EditPolygonTooltip");
+        _polygonEditButton.OnClicked += OnEditPolygonClicked;
+
+        AddChild(_polygonEditButton);
+
         float h = 0;
 
         _shapeToggle = new SleekButtonState
@@ -108,7 +125,8 @@ public class ZoneEditorUI : SleekFullscreenBox
                 new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapeAABB")),
                 new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapeCylinder")),
                 new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapeSphere")),
-                new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapePolygon"))
+                new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapePolygon")),
+                new GUIContent(string.Empty)
             ])
         {
             PositionScale_Y = 1f,
@@ -240,17 +258,41 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         EditorZones.OnZoneAdded += UpdateZoneList;
         EditorZones.OnZoneRemoved += UpdateZoneList;
-        EditorZones.OnSelectedZoneUpdated += SelectionChanged;
+        EditorZones.OnZoneSelectionUpdated += SelectionChanged;
         EditorZones.OnZoneShapeUpdated += ShapeChanged;
     }
 
-
     public override void OnDestroy()
     {
+        Close();
+
         EditorZones.OnZoneAdded -= UpdateZoneList;
         EditorZones.OnZoneRemoved -= UpdateZoneList;
-        EditorZones.OnSelectedZoneUpdated -= SelectionChanged;
+        EditorZones.OnZoneSelectionUpdated -= SelectionChanged;
         EditorZones.OnZoneShapeUpdated -= ShapeChanged;
+    }
+    private void OnEditPolygonClicked(ISleekElement button)
+    {
+        if (UserControl.ActiveTool is not ZoneEditorTool tool)
+            return;
+
+        if (tool.PolygonEditTarget == null)
+        {
+            ZoneModel? selected = EditorZones
+                .EnumerateSelectedZones()
+                .SingleOrDefaultSafe(x => x.Shape == ZoneShape.Polygon);
+
+            tool.PolygonEditTarget = selected;
+            _polygonEditButton.Text = UncreatedZoneEditor.Instance.Translations.Translate(tool.PolygonEditTarget == null
+                ? "EditPolygonButton"
+                : "StopEditPolygonButton"
+            );
+        }
+        else
+        {
+            tool.PolygonEditTarget = null;
+            _polygonEditButton.Text = UncreatedZoneEditor.Instance.Translations.Translate("EditPolygonButton");
+        }
     }
 
     private static float HeightToSlider(float height) => Mathf.Clamp01(MathF.Sqrt(Math.Max(0, height + Landscape.TILE_HEIGHT / 2f)) / 45.254834f);
@@ -258,43 +300,38 @@ public class ZoneEditorUI : SleekFullscreenBox
 
     private void NameFieldUpdated(ISleekField field)
     {
-        ZoneModel? selectedZone = EditorZones.SelectedZone;
-
-        if (selectedZone == null)
-        {
-            field.Text = string.Empty;
-            return;
-        }
-
         string name = field.Text;
-        if (string.IsNullOrWhiteSpace(name))
+
+        foreach (ZoneModel zone in EditorZones.EnumerateSelectedZones())
         {
-            name = selectedZone.Index.ToString(CultureInfo.InvariantCulture);
+            string name2 = name;
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                name2 = zone.Index.ToString(CultureInfo.InvariantCulture);
+            }
+            zone.Name = name2;
+            // todo EditorZones.Instance.SetZoneShapeLocal(EditorZones.Instance.SelectedZoneIndex, SelectedShape);
         }
 
-        // todo EditorZones.Instance.SetZoneShapeLocal(EditorZones.Instance.SelectedZoneIndex, SelectedShape);
-        selectedZone.Name = name;
         field.Text = name;
+        _zoneList.NotifyDataChanged();
     }
 
     private void ShortNameFieldUpdated(ISleekField field)
     {
-        ZoneModel? selectedZone = EditorZones.SelectedZone;
-
-        if (selectedZone == null)
-        {
-            field.Text = string.Empty;
-            return;
-        }
-
         string? shortName = field.Text;
         if (string.IsNullOrWhiteSpace(shortName))
         {
             shortName = null;
         }
 
-        // todo EditorZones.Instance.SetZoneShapeLocal(EditorZones.Instance.SelectedZoneIndex, SelectedShape);
-        selectedZone.ShortName = shortName;
+        foreach (ZoneModel zone in EditorZones.EnumerateSelectedZones())
+        {
+            zone.ShortName = shortName;
+            // todo EditorZones.Instance.SetZoneShapeLocal(EditorZones.Instance.SelectedZoneIndex, SelectedShape);
+        }
+
         field.Text = shortName ?? string.Empty;
     }
 
@@ -362,116 +399,80 @@ public class ZoneEditorUI : SleekFullscreenBox
         _maxHeightInfinityToggle.Value = false;
     }
 
-    private void TryUpdateMinHeight(ref float value)
+    private static void TryUpdateMinHeight(ref float value)
     {
-        ZoneModel? selectedZone = EditorZones.SelectedZone;
-
-        if (selectedZone == null)
-            return;
-
         // todo request
 
-        switch (selectedZone.Component)
+        foreach (ZoneModel zone in EditorZones.EnumerateSelectedZones())
         {
-            case CircleZoneComponent circle:
-                circle.MinimumHeight = value;
-                break;
+            switch (zone.Component)
+            {
+                case CircleZoneComponent circle:
+                    circle.MinimumHeight = value;
+                    break;
 
-            case PolygonZoneComponent polygon:
-                polygon.MinimumHeight = value;
-                break;
+                case PolygonZoneComponent polygon:
+                    polygon.MinimumHeight = value;
+                    break;
 
-            case null when selectedZone.Shape == ZoneShape.Cylinder:
-                (selectedZone.CircleInfo ??= new ZoneCircleInfo()).MinimumHeight = value;
-                break;
+                case null when zone.Shape == ZoneShape.Cylinder:
+                    (zone.CircleInfo ??= new ZoneCircleInfo()).MinimumHeight = value;
+                    break;
 
-            case null when selectedZone.Shape == ZoneShape.Polygon:
-                (selectedZone.PolygonInfo ??= new ZonePolygonInfo()).MinimumHeight = value;
-                break;
+                case null when zone.Shape == ZoneShape.Polygon:
+                    (zone.PolygonInfo ??= new ZonePolygonInfo()).MinimumHeight = value;
+                    break;
+            }
         }
     }
 
-    private bool TryUpdateMaxHeight(ref float value)
+    private static void TryUpdateMaxHeight(ref float value)
     {
-        ZoneModel? selectedZone = EditorZones.SelectedZone;
-
-        if (selectedZone == null)
-            return true;
-
         // todo request
 
-        switch (selectedZone.Component)
+        foreach (ZoneModel zone in EditorZones.EnumerateSelectedZones())
         {
-            case CircleZoneComponent circle:
-                circle.MaximumHeight = value;
-                break;
+            switch (zone.Component)
+            {
+                case CircleZoneComponent circle:
+                    circle.MaximumHeight = value;
+                    break;
 
-            case PolygonZoneComponent polygon:
-                polygon.MaximumHeight = value;
-                break;
+                case PolygonZoneComponent polygon:
+                    polygon.MaximumHeight = value;
+                    break;
 
-            case null when selectedZone.Shape == ZoneShape.Cylinder:
-                (selectedZone.CircleInfo ??= new ZoneCircleInfo()).MaximumHeight = value;
-                break;
+                case null when zone.Shape == ZoneShape.Cylinder:
+                    (zone.CircleInfo ??= new ZoneCircleInfo()).MaximumHeight = value;
+                    break;
 
-            case null when selectedZone.Shape == ZoneShape.Polygon:
-                (selectedZone.PolygonInfo ??= new ZonePolygonInfo()).MaximumHeight = value;
-                break;
+                case null when zone.Shape == ZoneShape.Polygon:
+                    (zone.PolygonInfo ??= new ZonePolygonInfo()).MaximumHeight = value;
+                    break;
+            }
         }
-
-        return true;
     }
 
     private void ShapeChanged(ZoneModel zone, ZoneShape oldShape)
     {
-        if (zone == EditorZones.SelectedZone && IsActive)
-        {
-            _shapeToggle.state = (int)zone.Shape;
-        }
+        UpdateFieldsFromSelection();
     }
 
-    private void SelectionChanged(ZoneModel? newSelection, ZoneModel? oldSelection)
+    private void SelectionChanged(ZoneModel selectedOrDeselected, bool wasSelected)
     {
-        bool heightVisibility;
-        if (newSelection != null && IsActive)
-        {
-            heightVisibility = newSelection.Shape is ZoneShape.Polygon or ZoneShape.Cylinder;
-            _shapeToggle.state = (int)newSelection.Shape;
-            if (newSelection.CircleInfo != null)
-            {
-                UpdateMinHeightUI(newSelection.CircleInfo.MinimumHeight);
-                UpdateMaxHeightUI(newSelection.CircleInfo.MaximumHeight);
-            }
-            else if (newSelection.PolygonInfo != null)
-            {
-                UpdateMinHeightUI(newSelection.PolygonInfo.MinimumHeight);
-                UpdateMaxHeightUI(newSelection.PolygonInfo.MaximumHeight);
-            }
-
-            _nameField.Text = newSelection.Name;
-            _shortNameField.Text = newSelection.ShortName ?? string.Empty;
-        }
-        else
-        {
-            heightVisibility = false;
-            _nameField.Text = LevelZones.ZoneList.Count.ToString(CultureInfo.InvariantCulture);
-            _shortNameField.Text = string.Empty;
-        }
-
-        _minHeightSlider.IsVisible = heightVisibility;
-        _minHeightField.IsVisible = heightVisibility;
-        _minHeightInfinityToggle.IsVisible = heightVisibility;
-        _maxHeightSlider.IsVisible = heightVisibility;
-        _maxHeightField.IsVisible = heightVisibility;
-        _maxHeightInfinityToggle.IsVisible = heightVisibility;
+        UpdateFieldsFromSelection();
     }
 
     private void OnShapeToggled(SleekButtonState button, int index)
     {
-        ZoneModel? selectedZone = EditorZones.SelectedZone;
-
-        if (selectedZone != null)
-            EditorZones.ChangeShapeLocal(selectedZone, SelectedShape);
+        ZoneShape shape = SelectedShape;
+        foreach (ZoneModel selectedZone in EditorZones.EnumerateSelectedZones().ToList() /* zones are deselected when the shape changes */)
+        {
+            if (selectedZone.Shape != shape)
+            {
+                EditorZones.ChangeShapeLocal(selectedZone, shape);
+            }
+        }
     }
 
     private void UpdateZoneList(ZoneModel model)
@@ -503,13 +504,86 @@ public class ZoneEditorUI : SleekFullscreenBox
         // this is awful but theres not really a better way with SleekList.
         int index = Mathf.FloorToInt(button.PositionOffset_Y / 40f);
 
-        if (index >= LevelZones.ZoneList.Count || index < 0)
+        if (index >= LevelZones.ZoneList.Count || index < 0 || UserControl.ActiveTool is not ZoneEditorTool)
         {
             return;
         }
 
         ZoneModel zone = LevelZones.ZoneList[index];
-        EditorZones.SelectedZone = zone;
+
+        if (zone.Component == null)
+            return;
+
+        DevkitSelectionManager.clear();
+        DevkitSelectionManager.add(new DevkitSelection(zone.Component.gameObject, zone.Component.Collider));
+    }
+
+    internal void UpdateFieldsFromSelection()
+    {
+        if (UserControl.ActiveTool is ZoneEditorTool { PolygonEditTarget: not null })
+        {
+            _minHeightSlider.IsVisible = false;
+            _minHeightField.IsVisible = false;
+            _minHeightInfinityToggle.IsVisible = false;
+            _maxHeightSlider.IsVisible = false;
+            _maxHeightField.IsVisible = false;
+            _maxHeightInfinityToggle.IsVisible = false;
+            _shapeToggle.state = (int)ZoneShape.Polygon;
+            _shapeToggle.isInteractable = false;
+            _polygonEditButton.IsVisible = true;
+            _polygonEditButton.Text = UncreatedZoneEditor.Instance.Translations.Translate("StopEditPolygonButton");
+            return;
+        }
+
+        bool any = false;
+        foreach (ZoneModel zone in EditorZones.EnumerateSelectedZones())
+        {
+            any = true;
+            bool heightVisibility = zone.Shape is ZoneShape.Polygon or ZoneShape.Cylinder;
+            _shapeToggle.state = (int)zone.Shape;
+            _shortNameField.Text = zone.ShortName ?? string.Empty;
+            _nameField.Text = zone.Name;
+            if (zone.CircleInfo != null)
+            {
+                UpdateMinHeightUI(zone.CircleInfo.MinimumHeight ?? float.NegativeInfinity);
+                UpdateMaxHeightUI(zone.CircleInfo.MaximumHeight ?? float.PositiveInfinity);
+            }
+            else if (zone.PolygonInfo != null)
+            {
+                UpdateMinHeightUI(zone.PolygonInfo.MinimumHeight ?? float.NegativeInfinity);
+                UpdateMaxHeightUI(zone.PolygonInfo.MaximumHeight ?? float.PositiveInfinity);
+            }
+
+            _minHeightSlider.IsVisible = heightVisibility;
+            _minHeightField.IsVisible = heightVisibility;
+            _minHeightInfinityToggle.IsVisible = heightVisibility;
+            _maxHeightSlider.IsVisible = heightVisibility;
+            _maxHeightField.IsVisible = heightVisibility;
+            _maxHeightInfinityToggle.IsVisible = heightVisibility;
+            if (zone.Shape == ZoneShape.Polygon)
+            {
+                _polygonEditButton.IsVisible = true;
+                _polygonEditButton.Text = UncreatedZoneEditor.Instance.Translations.Translate("EditPolygonButton");
+            }
+            else
+            {
+                _polygonEditButton.IsVisible = false;
+            }
+            break;
+        }
+
+        if (any)
+            return;
+
+        _nameField.Text = LevelZones.ZoneList.Count.ToString(CultureInfo.InvariantCulture);
+        _shortNameField.Text = string.Empty;
+        _minHeightSlider.IsVisible = true;
+        _minHeightField.IsVisible = true;
+        _minHeightInfinityToggle.IsVisible = true;
+        _maxHeightSlider.IsVisible = true;
+        _maxHeightField.IsVisible = true;
+        _maxHeightInfinityToggle.IsVisible = true;
+        _polygonEditButton.IsVisible = false;
     }
 
     public void Open()
@@ -528,12 +602,7 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         IsActive = true;
         _zoneList.NotifyDataChanged();
-        ZoneModel? selectedZone = EditorZones.SelectedZone;
-
-        if (selectedZone != null)
-        {
-            SelectionChanged(selectedZone, null);
-        }
+        UpdateFieldsFromSelection();
 
         UserControl.ActiveTool = new ZoneEditorTool();
         AnimateIntoView();
@@ -544,7 +613,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         if (!IsActive)
             return;
 
-        EditorZones.SelectedZone = null;
+        DevkitSelectionManager.clear();
 
         // close this tool
         if (UserControl.ActiveTool is ZoneEditorTool)

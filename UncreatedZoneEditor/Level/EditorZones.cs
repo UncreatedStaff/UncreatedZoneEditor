@@ -24,11 +24,10 @@ public static class EditorZones
     private static readonly CachedMulticastEvent<ZoneRemoved> EventOnZoneRemoved = new CachedMulticastEvent<ZoneRemoved>(typeof(EditorZones), nameof(OnZoneRemoved));
     private static readonly CachedMulticastEvent<ZoneIndexUpdated> EventOnZoneIndexUpdated = new CachedMulticastEvent<ZoneIndexUpdated>(typeof(EditorZones), nameof(OnZoneIndexUpdated));
     internal static readonly CachedMulticastEvent<ZoneDimensionsUpdated> EventOnZoneDimensionsUpdated = new CachedMulticastEvent<ZoneDimensionsUpdated>(typeof(EditorZones), nameof(OnZoneDimensionsUpdated));
-    private static readonly CachedMulticastEvent<SelectedZoneUpdated> EventOnSelectedZoneUpdated = new CachedMulticastEvent<SelectedZoneUpdated>(typeof(EditorZones), nameof(OnSelectedZoneUpdated));
+    private static readonly CachedMulticastEvent<ZoneSelectionUpdated> EventOnZoneSelectionUpdated = new CachedMulticastEvent<ZoneSelectionUpdated>(typeof(EditorZones), nameof(OnZoneSelectionUpdated));
     private static readonly CachedMulticastEvent<ZoneShapeUpdated> EventOnZoneShapeUpdated = new CachedMulticastEvent<ZoneShapeUpdated>(typeof(EditorZones), nameof(OnZoneShapeUpdated));
 
     internal static readonly List<BaseZoneComponent> ComponentsPendingUndo = new List<BaseZoneComponent>(4);
-    private static ZoneModel? _selectedZone;
 
     /// <summary>
     /// Invoked when a zone is added locally.
@@ -78,47 +77,50 @@ public static class EditorZones
 #if CLIENT
 
     /// <summary>
-    /// Invoked when the local user selects or deselects a new zone.
+    /// Invoked when a zone is selected or deselected.
     /// </summary>
-    public static event SelectedZoneUpdated OnSelectedZoneUpdated
+    public static event ZoneSelectionUpdated OnZoneSelectionUpdated
     {
-        add => EventOnSelectedZoneUpdated.Add(value);
-        remove => EventOnSelectedZoneUpdated.Remove(value);
+        add => EventOnZoneSelectionUpdated.Add(value);
+        remove => EventOnZoneSelectionUpdated.Remove(value);
     }
 
     /// <summary>
-    /// The currently selected zone, if any.
+    /// Enumerates through all selected zones.
     /// </summary>
-    public static ZoneModel? SelectedZone
+    public static IEnumerable<ZoneModel> EnumerateSelectedZones()
     {
-        get => _selectedZone;
-        set
+        ThreadUtil.assertIsGameThread();
+        AssertEditor();
+
+        return DevkitSelectionManager.selection
+            .Select(sel => sel.gameObject.TryGetComponent(out BaseZoneComponent comp) ? comp : null)
+            .Where(comp => comp != null)
+            .Select(comp => comp!.Model);
+    }
+
+    /// <summary>
+    /// Check if a zone is selected.
+    /// </summary>
+    public static bool IsZoneSelected(ZoneModel model)
+    {
+        return model.Component != null
+               && UserControl.ActiveTool is ZoneEditorTool
+               && DevkitSelectionManager.selection.Any(x => x.collider == model.Component.Collider);
+    }
+
+    /// <summary>
+    /// Get the selection object for a zone if it's selected.
+    /// </summary>
+    public static DevkitSelection? GetZoneSelection(ZoneModel model)
+    {
+        if (model.Component == null || UserControl.ActiveTool is not ZoneEditorTool)
         {
-            ThreadUtil.assertIsGameThread();
-
-            if (ReferenceEquals(_selectedZone, value))
-                return;
-
-            ZoneModel? oldSelection = _selectedZone;
-
-            if (oldSelection != null)
-                oldSelection.Index = GetIndexQuick(oldSelection);
-
-            if (value != null)
-                value.Index = GetIndexQuick(value);
-
-            _selectedZone = value;
-            EventOnSelectedZoneUpdated.TryInvoke(value, oldSelection);
-
-            if (value != null
-                && UserControl.ActiveTool is ZoneEditorTool
-                && value.Component != null
-                && DevkitSelectionManager.selection.All(x => x.collider != value.Component)
-                && DevkitSelectionManager.data.collider != value.Component.Collider)
-            {
-                DevkitSelectionManager.add(new DevkitSelection(value.Component.gameObject, value.Component.Collider));
-            }
+            return null;
         }
+
+        return DevkitSelectionManager.selection.FirstOrDefault(x => x.collider == model.Component.Collider);
+
     }
 
     internal static void Unload()
@@ -132,6 +134,11 @@ public static class EditorZones
         }
 
         ComponentsPendingUndo.Clear();
+    }
+
+    internal static void BroadcastZoneSelected(ZoneModel zone, bool wasSelected)
+    {
+        EventOnZoneSelectionUpdated.TryInvoke(zone, wasSelected);
     }
 
 #endif
@@ -273,9 +280,9 @@ public static class EditorZones
     {
 
 #if CLIENT
-        if (_selectedZone == model)
+        if (GetZoneSelection(model) is { } selected)
         {
-            SelectedZone = null;
+            DevkitSelectionManager.remove(selected);
         }
 #endif
 
@@ -313,11 +320,6 @@ public static class EditorZones
 #if CLIENT
     internal static void TemporarilyRemoveZoneLocal(ZoneModel model, int index)
     {
-        if (_selectedZone == model)
-        {
-            SelectedZone = null;
-        }
-
         model.Index = index;
         LevelZones.ZoneList.RemoveAt(index);
         UncreatedZoneEditor.Instance.isDirty = true;
@@ -388,14 +390,14 @@ public static class EditorZones
         UncreatedZoneEditor.Instance.isDirty = true;
 
 #if CLIENT
-        bool isSelected = SelectedZone == model;
+        DevkitSelection? selection = GetZoneSelection(model);
+        if (selection != null)
+        {
+            DevkitSelectionManager.remove(selection);
+        }
+
         if (model.Component != null)
         {
-            if (isSelected && DevkitSelectionManager.selection.FirstOrDefault(x => x.collider == model.Component.Collider) is { } selected)
-            {
-                DevkitSelectionManager.remove(selected);
-            }
-
             model.Component.IsRemoved = true;
             model.Component.IsRemovedForShapeChange = true;
             GameObject obj = model.Component.gameObject;
@@ -410,7 +412,7 @@ public static class EditorZones
             AddComponentIntl(model);
         }
 
-        if (isSelected && UserControl.ActiveTool is ZoneEditorTool)
+        if (selection != null && UserControl.ActiveTool is ZoneEditorTool)
         {
             DevkitSelectionManager.add(new DevkitSelection(model.Component!.gameObject, model.Component.Collider));
         }
@@ -468,4 +470,4 @@ public delegate void ZoneRemoved(ZoneModel model);
 public delegate void ZoneIndexUpdated(ZoneModel model, int oldIndex);
 public delegate void ZoneShapeUpdated(ZoneModel model, ZoneShape oldShape);
 public delegate void ZoneDimensionsUpdated(ZoneModel model);
-public delegate void SelectedZoneUpdated(ZoneModel? newSelection, ZoneModel? oldSelection);
+public delegate void ZoneSelectionUpdated(ZoneModel selectedOrDeselected, bool wasSelected);

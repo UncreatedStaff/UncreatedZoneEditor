@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Uncreated.ZoneEditor.Utility;
 public static class PolygonMeshGenerator
 {
-    public static Mesh CreateMesh(IReadOnlyList<Vector2> pointList, int triCount, Vector3? originOverride, out Vector3 origin)
+    public static Mesh CreateMesh(IReadOnlyList<Vector2> pointList, int triCount, float minHeight, float maxHeight, Vector3? originOverride, out Vector3 origin)
     {
         int ptCt = pointList.Count;
         if (ptCt < 3)
@@ -36,7 +36,6 @@ public static class PolygonMeshGenerator
             }
         }
 
-        const float minHeight = -2, maxHeight = 2;
         if (originOverride.HasValue)
         {
             origin = originOverride.Value;

@@ -1,12 +1,17 @@
 ﻿#if CLIENT
+using System.Globalization;
+using Cysharp.Threading.Tasks;
+using DevkitServer;
 using SDG.Framework.Devkit.Interactable;
+using SDG.Framework.Utilities;
 using Uncreated.ZoneEditor.Data;
 
 namespace Uncreated.ZoneEditor.Objects;
 public abstract class BaseZoneComponent : MonoBehaviour,
     IDevkitInteractableBeginSelectionHandler,
     IDevkitInteractableEndSelectionHandler,
-    IDevkitSelectionTransformableHandler
+    IDevkitSelectionTransformableHandler,
+    IDevkitSelectionCopyableHandler
 {
     private Vector3 _center;
     private Vector3 _spawn;
@@ -25,6 +30,7 @@ public abstract class BaseZoneComponent : MonoBehaviour,
         set
         {
             _center = value;
+            Model.Center = value;
             transform.position = value;
         }
     }
@@ -35,6 +41,7 @@ public abstract class BaseZoneComponent : MonoBehaviour,
         set
         {
             _spawn = value;
+            Model.Spawn = value;
             InvokeDimensionUpdate();
         }
     }
@@ -57,13 +64,14 @@ public abstract class BaseZoneComponent : MonoBehaviour,
 
     public virtual void Init(ZoneModel model)
     {
-        Center = model.Center;
-        Spawn = model.Spawn;
-        SpawnYaw = model.SpawnYaw;
+        Model = model;
+        _center = model.Center;
+        _spawn = model.Spawn;
+        _spawnYaw = model.SpawnYaw;
 
+        transform.position = _center;
         gameObject.layer = 3;
         gameObject.tag = "Logic";
-        Model = model;
     }
 
     public abstract void RevertToDefault();
@@ -76,15 +84,22 @@ public abstract class BaseZoneComponent : MonoBehaviour,
 
     void IDevkitInteractableBeginSelectionHandler.beginSelection(InteractionData data)
     {
-        EditorZones.SelectedZone = Model;
+        IsSelected = true;
+        UniTask.Create(async () =>
+        {
+            await UniTask.WaitForEndOfFrame(DevkitServerModule.ComponentHost);
+            EditorZones.BroadcastZoneSelected(Model, true);
+        });
     }
 
     void IDevkitInteractableEndSelectionHandler.endSelection(InteractionData data)
     {
-        if (EditorZones.SelectedZone == Model)
+        IsSelected = false;
+        UniTask.Create(async () =>
         {
-            EditorZones.SelectedZone = null;
-        }
+            await UniTask.WaitForEndOfFrame(DevkitServerModule.ComponentHost);
+            EditorZones.BroadcastZoneSelected(Model, false);
+        });
     }
 
     void IDevkitSelectionTransformableHandler.transformSelection()
@@ -94,7 +109,8 @@ public abstract class BaseZoneComponent : MonoBehaviour,
 
     protected virtual void ApplyTransform()
     {
-        Model.Center = transform.position;
+        _center = transform.position;
+        Model.Center = _center;
     }
 
     [UsedImplicitly]
@@ -110,7 +126,7 @@ public abstract class BaseZoneComponent : MonoBehaviour,
     [UsedImplicitly]
     protected virtual void OnDisable()
     {
-        if (IsRemoved || Model == null)
+        if (IsRemoved || Model == null || Level.isExiting || Provider.isApplicationQuitting)
             return;
 
         EditorZones.TemporarilyRemoveZoneLocal(Model, EditorZones.GetIndexQuick(Model));
@@ -124,6 +140,31 @@ public abstract class BaseZoneComponent : MonoBehaviour,
         {
             UncreatedZoneEditor.Instance.LogDebug($"Permanently removed {Model.Name.Format()} as disabled object (@ {Model.Index.Format()}).");
         }
+    }
+
+    public GameObject copySelection()
+    {
+        ZoneModel newModel = (ZoneModel)Model.Clone();
+
+        string newName = newModel.Name + " Copy";
+        if (LevelZones.ZoneList.Exists(x => x.Name.Equals(newName)))
+        {
+            newName += " ";
+            string name;
+            int num = 1;
+            do
+            {
+                ++num;
+                name = newName + num.ToString(CultureInfo.InvariantCulture);
+            }
+            while (LevelZones.ZoneList.Exists(x => x.Name.Equals(name)));
+            newName = name;
+        }
+
+        newModel.Name = newName;
+        newModel.ShortName = null;
+
+        return EditorZones.AddFromModelLocal(newModel);
     }
 }
 #endif

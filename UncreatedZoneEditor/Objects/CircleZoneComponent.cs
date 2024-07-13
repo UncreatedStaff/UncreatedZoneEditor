@@ -67,43 +67,54 @@ public class CircleZoneComponent : BaseZoneComponent
 
     private void UpdateHeightOrRadius()
     {
-        Vector3 center;
+        float center;
         float height;
         if (!float.IsFinite(_maxHeight) && !float.IsFinite(_minHeight))
         {
             height = 2048f;
-            center = new Vector3(0f, 0f, 0f);
+            center = 0f;
         }
         else if (!float.IsFinite(_maxHeight))
         {
-            height = 1024f + _minHeight;
-            center = new Vector3(0f, _minHeight + 512f + _minHeight / 2f, 0f);
+            height = 1024f - _minHeight;
+            center = (_minHeight + 2048f) / 2f - 1024f;
         }
         else if (!float.IsFinite(_minHeight))
         {
             height = _maxHeight - 1024f;
-            center = new Vector3(0f, _maxHeight - 512f - _maxHeight / 2f, 0f);
+            center = (_minHeight + 2048f) / 2f - 1024f;
         }
         else
         {
             height = _maxHeight - _minHeight;
-            center = new Vector3(0f, _minHeight + (_maxHeight - _minHeight) / 2f, 0f);
+            center = _minHeight + (_maxHeight - _minHeight) / 2f;
         }
 
         transform.localScale = new Vector3(_radius, height, _radius);
-        Center = center;
+        Center = Center with { y = center };
     }
 
     protected override void ApplyTransform()
     {
-        Vector3 scale = transform.localScale;
-        Radius = Math.Min(scale.x, scale.z);
         base.ApplyTransform();
+
+        Vector3 scale = transform.localScale;
+        transform.rotation = Quaternion.identity;
+
+        float rad = Math.Min(scale.x, scale.z);
+        if (_radius != rad)
+        {
+            Radius = rad;
+        }
+        else
+        {
+            UpdateHeightOrRadius();
+        }
     }
 
     public override void Init(ZoneModel model)
     {
-        model.CircleInfo ??= new ZoneCircleInfo { Radius = 10f, MinimumHeight = float.NegativeInfinity, MaximumHeight = float.PositiveInfinity };
+        model.CircleInfo ??= new ZoneCircleInfo { Radius = 10f, MinimumHeight = null, MaximumHeight = null };
 
         base.Init(model);
 
@@ -115,7 +126,6 @@ public class CircleZoneComponent : BaseZoneComponent
         _collider.radius = 1f;
         _collider.height = 1f;
         UpdateHeightOrRadius();
-        _collider.isTrigger = true;
         Collider = _collider;
     }
 

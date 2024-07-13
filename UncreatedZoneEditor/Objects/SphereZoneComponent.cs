@@ -56,6 +56,7 @@ public class SphereZoneComponent : BaseZoneComponent
         // todo use min or max depending on the previous scale value
         Vector3 scale = transform.localScale;
         Radius = Math.Max(scale.x, Math.Max(scale.y, scale.z));
+        transform.rotation = Quaternion.identity;
         base.ApplyTransform();
     }
 

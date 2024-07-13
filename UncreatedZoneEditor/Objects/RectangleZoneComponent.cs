@@ -33,7 +33,6 @@ public class RectangleZoneComponent : BaseZoneComponent
 
         _collider = gameObject.GetOrAddComponent<BoxCollider>();
         _collider.size = Vector3.one;
-        _collider.isTrigger = true;
         Collider = _collider;
     }
 
@@ -41,20 +40,46 @@ public class RectangleZoneComponent : BaseZoneComponent
     {
         base.RenderGizmos(gizmos);
 
+        Transform transform = this.transform;
         Vector3 center = transform.position;
-        Vector3 scale = transform.localScale;
-        gizmos.Box(center, scale, Color.white);
-        if (IsSelected)
+
+        Vector3 size = RoundSize();
+
+        if (!transform.rotation.IsNearlyIdentity())
         {
-            Bounds bounds = new Bounds(center, scale);
-            gizmos.AABBProjectedOnTerrain(in bounds, Color.white);
+            gizmos.Box(transform.localToWorldMatrix, Vector3.one, Color.gray);
+            gizmos.Box(center, size, Color.white);
         }
+        else
+        {
+            gizmos.Box(transform.localToWorldMatrix, Vector3.one, Color.white);
+        }
+
+        if (!IsSelected)
+            return;
+
+        Bounds bounds = new Bounds(center, size);
+        gizmos.AABBProjectedOnTerrain(in bounds, Color.white);
+    }
+
+    private Vector3 RoundSize()
+    {
+        Transform transform = this.transform;
+        Vector3 euler = transform.rotation.eulerAngles;
+        euler.x = Mathf.Round(euler.x / 90f) * 90f;
+        euler.y = Mathf.Round(euler.y / 90f) * 90f;
+        euler.z = Mathf.Round(euler.z / 90f) * 90f;
+        Vector3 scale = Quaternion.Euler(euler) * transform.localScale;
+        return new Vector3(Math.Abs(scale.x), Math.Abs(scale.y), Math.Abs(scale.z));
     }
 
     protected override void ApplyTransform()
     {
-        Vector3 scale = transform.localScale;
+        Vector3 scale = RoundSize();
+
+        transform.rotation = Quaternion.identity;
         Size = scale;
+
         base.ApplyTransform();
     }
 
