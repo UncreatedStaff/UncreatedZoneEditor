@@ -6,6 +6,31 @@ namespace Uncreated.ZoneEditor.Tools;
 public static class RuntimeGizmoExtensions
 {
     /// <summary>
+    /// Draw a 2D rectangle facing upwards.
+    /// </summary>
+    public static void UpRectangle(this RuntimeGizmos gizmos, Vector3 center, Vector2 size, Color color, float lifespan = 0, EGizmoLayer layer = EGizmoLayer.World)
+    {
+        Vector3 topLeft  = new Vector3(center.x - size.x / 2f, 0f, center.z - size.y / 2f);
+        Vector3 topRight = new Vector3(center.x - size.x / 2f, 0f, center.z + size.y / 2f);
+        Vector3 botRight = new Vector3(center.x + size.x / 2f, 0f, center.z + size.y / 2f); 
+        Vector3 botLeft  = new Vector3(center.x + size.x / 2f, 0f, center.z - size.y / 2f); 
+        
+        gizmos.Line(topLeft,  topRight, color, lifespan, layer);
+        gizmos.Line(topRight, botRight, color, lifespan, layer);
+        gizmos.Line(botRight, botLeft,  color, lifespan, layer);
+        gizmos.Line(botLeft,  topLeft,  color, lifespan, layer);
+    }
+
+    /// <summary>
+    /// Draw a 2D + symbol facing upwards.
+    /// </summary>
+    public static void UpPlus(this RuntimeGizmos gizmos, Vector3 center, Vector2 size, Color color, float lifespan = 0, EGizmoLayer layer = EGizmoLayer.World)
+    {
+        gizmos.Line(new Vector3(center.x - size.x / 2f, 0f, center.z), new Vector3(center.x + size.x / 2f, 0f, center.z), color, lifespan, layer);
+        gizmos.Line(new Vector3(center.x, 0f, center.z - size.y / 2f), new Vector3(center.x, 0f, center.z + size.y / 2f), color, lifespan, layer);
+    }
+
+    /// <summary>
     /// Draw a line that follows the terrain height.
     /// </summary>
     public static void LineAlongTerrain(this RuntimeGizmos gizmos, Vector3 begin, Vector3 end, Color color, float resolution = 1f, float lifespan = 0, EGizmoLayer layer = EGizmoLayer.World)

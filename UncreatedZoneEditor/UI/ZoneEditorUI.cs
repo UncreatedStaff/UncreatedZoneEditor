@@ -541,6 +541,7 @@ public class ZoneEditorUI : SleekFullscreenBox
             any = true;
             bool heightVisibility = zone.Shape is ZoneShape.Polygon or ZoneShape.Cylinder;
             _shapeToggle.state = (int)zone.Shape;
+            _shapeToggle.isInteractable = true;
             _shortNameField.Text = zone.ShortName ?? string.Empty;
             _nameField.Text = zone.Name;
             if (zone.CircleInfo != null)
@@ -575,6 +576,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         if (any)
             return;
 
+        _shapeToggle.isInteractable = true;
         _nameField.Text = LevelZones.ZoneList.Count.ToString(CultureInfo.InvariantCulture);
         _shortNameField.Text = string.Empty;
         _minHeightSlider.IsVisible = true;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace Uncreated.ZoneEditor.Utility;
 
@@ -15,9 +16,9 @@ public readonly ref struct PolygonTriangulationProcessor
     private readonly VertexInfo[] _vertices;
     private readonly int _pointCount;
     private readonly int _vertexIndexOffset;
-    public PolygonTriangulationProcessor(Vector2[] points, int vertexIndexOffset)
+    public PolygonTriangulationProcessor(List<Vector2> points, int vertexIndexOffset)
     {
-        _pointCount = points.Length;
+        _pointCount = points.Count;
 
         _vertexIndexOffset = vertexIndexOffset;
 

@@ -14,6 +14,7 @@ public class PolygonZoneComponent : BaseZoneComponent
     private MeshCollider _collider;
     private List<Vector2> _points;
     private ReadOnlyCollection<Vector2> _readOnlyPoints;
+    private int _tempAddedPointIndex = -1;
 #nullable restore
 
     private bool _meshDirty;
@@ -24,6 +25,11 @@ public class PolygonZoneComponent : BaseZoneComponent
         get => _readOnlyPoints;
         set
         {
+            if (UserControl.ActiveTool is ZoneEditorTool tool)
+            {
+                tool.CancelDrag();
+            }
+
             _points = [ ..value ];
             _readOnlyPoints = new ReadOnlyCollection<Vector2>(_points);
             (Model.PolygonInfo ??= new ZonePolygonInfo()).Points = _points.ToArray();
@@ -139,11 +145,144 @@ public class PolygonZoneComponent : BaseZoneComponent
         InvokeDimensionUpdate();
     }
 
+    public bool DeletePoint(int index, out bool wasTempAdd)
+    {
+        ThreadUtil.assertIsGameThread();
+
+        if (Model.PolygonInfo == null || Model.PolygonInfo.Points.Length <= index || index < 0)
+            throw new ArgumentOutOfRangeException(nameof(index), "Index does not correspond to a point.");
+
+        Vector3 oldPoint = _points[index];
+        _points.RemoveAt(index);
+
+        wasTempAdd = _tempAddedPointIndex == index;
+        if (wasTempAdd)
+        {
+            _tempAddedPointIndex = -1;
+        }
+
+        if (!CheckPointsValid(_points))
+        {
+            _points.Insert(index, oldPoint);
+            return false;
+        }
+
+        if (_tempAddedPointIndex > index)
+            --_tempAddedPointIndex;
+
+        Model.PolygonInfo!.Points = _points.ToArray();
+        if (!wasTempAdd)
+        {
+            _meshDirty = true;
+            InvokeDimensionUpdate();
+        }
+        return true;
+    }
+
+    public bool AddPoint(Vector2 location, int beforeIndex)
+    {
+        if (beforeIndex < 0)
+            beforeIndex = _points.Count;
+
+        ThreadUtil.assertIsGameThread();
+
+        if (Model.PolygonInfo == null || Model.PolygonInfo.Points.Length < beforeIndex || beforeIndex < 0)
+            throw new ArgumentOutOfRangeException(nameof(beforeIndex), "Index does not correspond to a point.");
+
+        _points.Insert(beforeIndex, location);
+        
+        if (!CheckPointsValid(_points))
+        {
+            _points.RemoveAt(beforeIndex);
+            return false;
+        }
+
+        if (_tempAddedPointIndex >= beforeIndex)
+            ++_tempAddedPointIndex;
+
+        Model.PolygonInfo!.Points = _points.ToArray();
+        _meshDirty = true;
+        InvokeDimensionUpdate();
+        return true;
+    }
+
+    public bool MovePoint(Vector2 location, int index, out bool wasTempAdd)
+    {
+        ThreadUtil.assertIsGameThread();
+
+        if (Model.PolygonInfo == null || Model.PolygonInfo.Points.Length <= index || index < 0)
+            throw new ArgumentOutOfRangeException(nameof(index), "Index does not correspond to a point.");
+
+        Vector3 old = _points[index];
+        _points[index] = location;
+
+        wasTempAdd = _tempAddedPointIndex == index;
+        if (wasTempAdd)
+        {
+            _tempAddedPointIndex = -1;
+        }
+
+        if (!CheckPointsValid(_points))
+        {
+            _points[index] = old;
+            return false;
+        }
+
+        Model.PolygonInfo!.Points[index] = location;
+        if (!wasTempAdd)
+        {
+            _meshDirty = true;
+            InvokeDimensionUpdate();
+        }
+        return true;
+    }
+
+    public void TempAddPoint(Vector2 location, int beforeIndex)
+    {
+        ThreadUtil.assertIsGameThread();
+
+        if (Model.PolygonInfo == null || Model.PolygonInfo.Points.Length <= beforeIndex || beforeIndex < 0)
+            throw new ArgumentOutOfRangeException(nameof(beforeIndex), "Index does not correspond to a point.");
+
+        _tempAddedPointIndex = beforeIndex;
+        _points.Insert(beforeIndex, location);
+        Model.PolygonInfo!.Points = _points.ToArray();
+    }
+
+    public void TryAbandonTempPoint()
+    {
+        if (_tempAddedPointIndex < 0)
+            return;
+
+        _points.RemoveAt(_tempAddedPointIndex);
+        Model.PolygonInfo!.Points = _points.ToArray();
+    }
+
+    private static int[]? _triBuffer;
+    internal static bool CheckPointsValid(List<Vector2> pts)
+    {
+        try
+        {
+            int triVertsNeeded = (pts.Count - 2) * 3;
+            if (_triBuffer == null || _triBuffer.Length < triVertsNeeded)
+            {
+                _triBuffer = new int[triVertsNeeded];
+            }
+
+            new PolygonTriangulationProcessor(pts, 0).WriteTriangles(_triBuffer, -1);
+            return true;
+        }
+        catch (TimeoutException)
+        {
+            return false;
+        }
+    }
+
 
     [UsedImplicitly]
     private void LateUpdate()
     {
-        if (!_meshDirty)
+        if (!_meshDirty || UserControl.ActiveTool is ZoneEditorTool { PolygonEditTarget: not null })
             return;
 
         Mesh mesh = PolygonMeshGenerator.CreateMesh(_points, -1,

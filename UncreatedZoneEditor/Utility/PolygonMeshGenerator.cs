@@ -12,27 +12,25 @@ public static class PolygonMeshGenerator
 
         bool isReversed = IsCounterclockwise(pointList);
 
-        Vector2[] points;
+        List<Vector2> points;
         if (isReversed)
         {
-            points = new Vector2[ptCt];
+            points = new List<Vector2>(ptCt);
             for (int i = 0; i < ptCt; ++i)
             {
-                points[i] = pointList[ptCt - i - 1];
+                points.Add(pointList[ptCt - i - 1]);
             }
         }
         else if (pointList is Vector2[] ptArr)
         {
-            Vector2[] pts = new Vector2[ptArr.Length];
-            Array.Copy(ptArr, pts, pts.Length);
-            points = pts;
+            points = [ ..ptArr ];
         }
         else
         {
-            points = new Vector2[ptCt];
+            points = new List<Vector2>(ptCt);
             for (int i = 0; i < ptCt; ++i)
             {
-                points[i] = pointList[i];
+                points.Add(pointList[i]);
             }
         }
 
@@ -45,7 +43,7 @@ public static class PolygonMeshGenerator
             origin = default;
             for (int i = 0; i < ptCt; ++i)
             {
-                ref Vector2 pt = ref points[i];
+                Vector2 pt = points[i];
                 origin.x += pt.x;
                 origin.z += pt.y;
             }
@@ -106,7 +104,7 @@ public static class PolygonMeshGenerator
             tris[triStartIndex + 5] = vertStartIndex + 3;
         }
 
-        Array.Reverse(points);
+        points.Reverse();
 
         int triOffset = ptCt * 6;
         int triCountWritten = new PolygonTriangulationProcessor(points, ptCt * 4)

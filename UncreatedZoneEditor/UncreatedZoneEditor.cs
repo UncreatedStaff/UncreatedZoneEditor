@@ -64,6 +64,8 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "EditPolygonTooltip", "Edit vertex locations from a top-down view." },
         { "StopEditPolygonButton", "Exit" },
         { "EditPolygonNotSelected", "Must have exactly 1 polygon selected." },
+
+        { "PolygonIntersectsItself", "Modifying the polygon will\ncause it to intersect itself." }
     };
 
 #if DEBUG
