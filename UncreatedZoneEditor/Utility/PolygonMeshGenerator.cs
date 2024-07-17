@@ -8,29 +8,31 @@ public static class PolygonMeshGenerator
     {
         int ptCt = pointList.Count;
         if (ptCt < 3)
-            throw new ArgumentException("Polygons must have at least 3 points to create a mesh.", nameof(pointList));
+            throw new ArgumentException("Polygons must have at least 3 points to create a mesh.", "proximity");
 
         bool isReversed = IsCounterclockwise(pointList);
 
-        List<Vector2> points;
+        Vector2[] points;
         if (isReversed)
         {
-            points = new List<Vector2>(ptCt);
+            points = new Vector2[ptCt];
             for (int i = 0; i < ptCt; ++i)
             {
-                points.Add(pointList[ptCt - i - 1]);
+                points[i] = pointList[ptCt - i - 1];
             }
         }
         else if (pointList is Vector2[] ptArr)
         {
-            points = [ ..ptArr ];
+            Vector2[] pts = new Vector2[ptArr.Length];
+            Array.Copy(ptArr, pts, pts.Length);
+            points = pts;
         }
         else
         {
-            points = new List<Vector2>(ptCt);
+            points = new Vector2[ptCt];
             for (int i = 0; i < ptCt; ++i)
             {
-                points.Add(pointList[i]);
+                points[i] = pointList[i];
             }
         }
 
@@ -43,7 +45,7 @@ public static class PolygonMeshGenerator
             origin = default;
             for (int i = 0; i < ptCt; ++i)
             {
-                Vector2 pt = points[i];
+                ref Vector2 pt = ref points[i];
                 origin.x += pt.x;
                 origin.z += pt.y;
             }
@@ -60,7 +62,7 @@ public static class PolygonMeshGenerator
         Vector3[] vertices = new Vector3[ptCt * 6];
         int[] tris = new int[ptCt * 6 + capTriCount * 6];
         Vector3[] normals = new Vector3[ptCt * 6];
-        //Vector2[] uv = new Vector2[ptCt * 6]; todo fixup UVs later
+        //Vector2[] uv = new Vector2[ptCt * 6];
 
         Vector2 origin2d = new Vector2(origin.x, origin.z);
 
@@ -104,7 +106,7 @@ public static class PolygonMeshGenerator
             tris[triStartIndex + 5] = vertStartIndex + 3;
         }
 
-        points.Reverse();
+        Array.Reverse(points);
 
         int triOffset = ptCt * 6;
         int triCountWritten = new PolygonTriangulationProcessor(points, ptCt * 4)
@@ -131,6 +133,7 @@ public static class PolygonMeshGenerator
             vertices = vertices,
             triangles = new ArraySegment<int>(tris, 0, triOffset + triCountWritten * 6).ToArray(),
             normals = normals
+            //uv = uv
         };
 
         return mesh;
@@ -157,7 +160,7 @@ public static class PolygonMeshGenerator
         }
 
         Vector2 pt1 = points[(minPtIndex == 0 ? ptCt : minPtIndex) - 1],
-            pt3 = points[(minPtIndex + 1) % ptCt];
+                pt3 = points[(minPtIndex + 1) % ptCt];
 
         Vector3 crx = Vector3.Cross(pt1 - minPt, pt3 - minPt);
 

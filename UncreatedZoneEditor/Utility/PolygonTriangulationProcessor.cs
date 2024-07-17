@@ -11,12 +11,12 @@ namespace Uncreated.ZoneEditor.Utility;
 /// <summary>
 /// Tool to split up polygons into triangles.
 /// </summary>
-public readonly ref struct PolygonTriangulationProcessor
+public readonly struct PolygonTriangulationProcessor
 {
     private readonly VertexInfo[] _vertices;
     private readonly int _pointCount;
     private readonly int _vertexIndexOffset;
-    public PolygonTriangulationProcessor(List<Vector2> points, int vertexIndexOffset)
+    public PolygonTriangulationProcessor(IReadOnlyList<Vector2> points, int vertexIndexOffset)
     {
         _pointCount = points.Count;
 
@@ -132,14 +132,12 @@ public readonly ref struct PolygonTriangulationProcessor
         tris[triOffset + 2] = vertex.PrevIndex + _vertexIndexOffset;
     }
 
-    // an 'ear' is a vertex that's on the convex hull that could be triangulated.
-    private static bool IsEar(in VertexInfo vertex)
+    public static bool IsEar(in VertexInfo vertex)
     {
         return IsNonIntersectingDiagonal(in vertex.Prev, in vertex.Next);
     }
 
-    // ReSharper disable InconsistentNaming
-    private static bool AreSegmentsIntersecting(in Vector2 seg1v1, in Vector2 seg1v2, in Vector2 seg2v1, in Vector2 seg2v2)
+    public static bool AreSegmentsIntersecting(in Vector2 seg1v1, in Vector2 seg1v2, in Vector2 seg2v1, in Vector2 seg2v2)
     {
         if ((IsCounterClockwise(in seg1v1, in seg1v2, in seg2v1) ^ IsCounterClockwise(in seg1v1, in seg1v2, in seg2v2))
             && (IsCounterClockwise(in seg2v1, in seg2v2, in seg1v1) ^ IsCounterClockwise(in seg2v1, in seg2v2, in seg1v2)))
@@ -152,9 +150,8 @@ public readonly ref struct PolygonTriangulationProcessor
             || IsPointOnLine(in seg2v1, in seg2v2, in seg1v1)
             || IsPointOnLine(in seg2v1, in seg2v2, in seg1v2);
     }
-    // ReSharper restore InconsistentNaming
 
-    private static bool IsPointOnLine(in Vector2 p1, in Vector2 p2, in Vector2 testPoint)
+    public static bool IsPointOnLine(in Vector2 p1, in Vector2 p2, in Vector2 testPoint)
     {
         if (!IsCollinear(in p1, in p2, in testPoint))
         {
@@ -165,11 +162,13 @@ public readonly ref struct PolygonTriangulationProcessor
         {
             return testPoint.x >= p1.x && testPoint.x <= p2.x || testPoint.x >= p2.x && testPoint.x <= p1.x;
         }
-
-        return testPoint.y >= p1.y && testPoint.y <= p2.y || testPoint.y >= p2.y && testPoint.y <= p1.y;
+        else
+        {
+            return testPoint.y >= p1.y && testPoint.y <= p2.y || testPoint.y >= p2.y && testPoint.y <= p1.y;
+        }
     }
 
-    private static bool IsNonIntersectingDiagonal(in VertexInfo v1, in VertexInfo v2)
+    public static bool IsNonIntersectingDiagonal(in VertexInfo v1, in VertexInfo v2)
     {
         if (!IsPointInternalToVertex(in v1, in v2.Point) || !IsPointInternalToVertex(in v2, v1.Point))
         {
@@ -196,60 +195,66 @@ public readonly ref struct PolygonTriangulationProcessor
         return true;
     }
 
-    private static bool IsPointInternalToVertex(in VertexInfo vertex, in Vector2 testPoint)
+    public static bool IsPointInternalToVertex(in VertexInfo vertex, in Vector2 testPoint)
     {
         if (IsCounterClockwiseOrCollinear(in vertex))
         {
             return IsCounterClockwise(in vertex.Point, in vertex.Next.Point, in testPoint) && IsCounterClockwise(in vertex.Point, in testPoint, in vertex.Prev.Point);
         }
-
-        return IsClockwiseOrCollinear(in vertex.Point, in testPoint, in vertex.Next.Point) || IsClockwiseOrCollinear(in testPoint, in vertex.Point, in vertex.Prev.Point);
+        else
+        {
+            return IsClockwiseOrCollinear(in vertex.Point, in testPoint, in vertex.Next.Point) || IsClockwiseOrCollinear(in testPoint, in vertex.Point, in vertex.Prev.Point);
+        }
     }
 
-    private static bool IsCounterClockwiseOrCollinear(in VertexInfo vertex)
+    public static bool IsCounterClockwise(in VertexInfo vertex)
+    {
+        return vertex.Area > 0;
+    }
+
+    public static bool IsCounterClockwiseOrCollinear(in VertexInfo vertex)
     {
         return vertex.Area >= 0;
     }
 
-    private static bool IsCounterClockwise(in Vector2 a, in Vector2 b, in Vector2 c)
+    public static bool IsCounterClockwise(in Vector2 a, in Vector2 b, in Vector2 c)
     {
         return GetTriArea(in a, in b, in c) > 0;
     }
 
-    private static bool IsClockwiseOrCollinear(in Vector2 a, in Vector2 b, in Vector2 c)
+    public static bool IsClockwiseOrCollinear(in Vector2 a, in Vector2 b, in Vector2 c)
     {
         return GetTriArea(in a, in b, in c) <= 0;
     }
 
-    private static bool IsCollinear(in Vector2 a, in Vector2 b, in Vector2 c)
+    public static bool IsCollinear(in Vector2 a, in Vector2 b, in Vector2 c)
     {
         return Math.Abs(GetTriArea(in a, in b, in c)) <= float.Epsilon;
     }
 
-    private static float GetTriArea(in VertexInfo vertex)
+    public static float GetTriArea(in VertexInfo vertex)
     {
         ref VertexInfo next = ref vertex.Next;
         ref VertexInfo prev = ref vertex.Prev;
 
         return (vertex.Point.x - prev.Point.x) * (next.Point.y - prev.Point.y) - (next.Point.x - prev.Point.x) * (vertex.Point.y - prev.Point.y);
     }
-    private static float GetTriArea(in Vector2 prev, in Vector2 vertex, in Vector2 next)
+    public static float GetTriArea(in Vector2 prev, in Vector2 vertex, in Vector2 next)
     {
         return (vertex.x - prev.x) * (next.y - prev.y) - (next.x - prev.x) * (vertex.y - prev.y);
     }
+}
 
-    private struct VertexInfo
-    {
-        public VertexInfo[] Vertices;
-        public int Index;
-        // ReSharper disable once MemberHidesStaticFromOuterClass
-        public bool IsEar;
-        public int NextIndex;
-        public int PrevIndex;
-        public Vector2 Point;
-        public float Area;
+public struct VertexInfo
+{
+    public VertexInfo[] Vertices;
+    public int Index;
+    public bool IsEar;
+    public int NextIndex;
+    public int PrevIndex;
+    public Vector2 Point;
+    public float Area;
 
-        public ref VertexInfo Next => ref Vertices[NextIndex];
-        public ref VertexInfo Prev => ref Vertices[PrevIndex];
-    }
+    public ref VertexInfo Next => ref Vertices[NextIndex];
+    public ref VertexInfo Prev => ref Vertices[PrevIndex];
 }

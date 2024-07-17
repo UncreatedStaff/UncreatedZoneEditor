@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+#if CLIENT
 using Uncreated.ZoneEditor.Objects;
+#endif
 
 namespace Uncreated.ZoneEditor.Data;
 

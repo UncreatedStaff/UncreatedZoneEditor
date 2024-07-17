@@ -125,8 +125,7 @@ public class ZoneEditorUI : SleekFullscreenBox
                 new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapeAABB")),
                 new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapeCylinder")),
                 new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapeSphere")),
-                new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapePolygon")),
-                new GUIContent(string.Empty)
+                new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("ShapePolygon"))
             ])
         {
             PositionScale_Y = 1f,

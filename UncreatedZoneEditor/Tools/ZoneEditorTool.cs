@@ -84,9 +84,19 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         }
     }
 
+    protected override void Equip()
+    {
+        EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+        if (editorUIExtension != null)
+            editorUIExtension.IsEnabled = true;
+    }
+
     protected override void Dequip()
     {
         PolygonEditTarget = null;
+        EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+        if (editorUIExtension != null)
+            editorUIExtension.IsEnabled = false;
     }
 
     protected override void EarlyInputTick()
@@ -162,6 +172,10 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         _oldRenderMode = GraphicsSettings.renderMode;
         _oldFarClip = MainCamera.instance.farClipPlane;
 
+        EditorArea.instance.onRegionUpdated += OnRegionUpdated;
+
+        EditorMessage.SendEditorMessage(UncreatedZoneEditor.Instance.Translations.Translate("ZoneToolHint"));
+
         Transform cameraTransform = MainCamera.instance.transform;
         _oldPosition = cameraTransform.position;
         _oldRotation = cameraTransform.rotation;
@@ -174,6 +188,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
 
             UniTask.Create(async () =>
             {
+                // this is necessary to give it time to switch render modes
                 await UniTask.WaitForEndOfFrame(DevkitServerModule.ComponentHost);
                 if (ReferenceEquals(UserControl.ActiveTool, this))
                 {
@@ -186,12 +201,18 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             MainCamera.instance.orthographic = true;
         }
 
+        QualitySettings.lodBias = float.MaxValue;
         CancelDrag();
         CanMiddleClickPick = false;
         CanRotate = false;
         CanAreaSelect = false;
         CanMoveOnInstantiate = false;
         ZoneEditorUI.Instance?.UpdateFieldsFromSelection();
+    }
+
+    private void OnRegionUpdated(byte oldX, byte oldY, byte newX, byte newY)
+    {
+        UncreatedZoneEditor.Instance.LogInfo(nameof(ZoneEditorTool), $"Region updated: ({oldX.Format()}, {oldY.Format()}) -> ({newX.Format()}, {newY.Format()}).");
     }
 
     private void ExitPolygonEditMode(ZoneModel old)
@@ -202,6 +223,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         CanMoveOnInstantiate = true;
         _isPanning = false;
         CancelDrag();
+        EditorArea.instance.onRegionUpdated -= OnRegionUpdated;
 
         UserMovement.SetEditorTransform(_oldPosition, _oldRotation);
 
@@ -212,8 +234,10 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         if (_oldRenderMode == ERenderMode.DEFERRED)
         {
             GraphicsSettings.renderMode = ERenderMode.DEFERRED;
-            GraphicsSettings.apply("Exiting polygon edit mode.");
         }
+
+        // applying will also reset LOD bias.
+        GraphicsSettings.apply("Exiting polygon edit mode.");
 
         ZoneEditorUI.Instance?.UpdateFieldsFromSelection();
 
@@ -254,10 +278,10 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         Vector3 size = maxDistFromCenter.size;
 
         float screenRatio = (float)Screen.width / Screen.height;
-        float targetRatio = size.x / size.y;
+        float targetRatio = size.x / size.z;
         return screenRatio >= targetRatio
-            ? size.y / 2f
-            : size.y / 2f * (targetRatio / screenRatio);
+            ? size.z / 2f
+            : size.z / 2f * (targetRatio / screenRatio);
     }
 
     private void TickPolygonEdit()
@@ -328,7 +352,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
 
                 if (!poly.MovePoint(new Vector2(selectPosition.x - center.x, selectPosition.y - center.z), _vertexDragIndex, out _))
                 {
-                    EditorMessage.SendEditorMessage(TranslationSource.FromPlugin(UncreatedZoneEditor.Instance), "PolygonIntersectsItself");
+                    EditorMessage.SendEditorMessage(UncreatedZoneEditor.Instance.Translations.Translate("PolygonIntersectsItself"));
                 }
 
                 CancelDrag();
@@ -345,7 +369,12 @@ public class ZoneEditorTool : DevkitServerSelectionTool
 
                 if (!poly.MovePoint(new Vector2(worldPos.x - center.x, worldPos.y - center.z), _vertexDragIndex, out _))
                 {
-                    EditorMessage.SendEditorMessage(TranslationSource.FromPlugin(UncreatedZoneEditor.Instance), "PolygonIntersectsItself");
+                    EditorMessage.SendEditorMessage(UncreatedZoneEditor.Instance.Translations.Translate("PolygonIntersectsItself"));
+
+                    if (!poly.CheckPointsValid())
+                    {
+                        poly.DeletePoint(_vertexDragIndex, out _);
+                    }
                 }
 
                 CancelDrag();
@@ -359,7 +388,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
                 CancelDrag();
                 if (!poly.DeletePoint(index, out _))
                 {
-                    EditorMessage.SendEditorMessage(TranslationSource.FromPlugin(UncreatedZoneEditor.Instance), "PolygonIntersectsItself");
+                    EditorMessage.SendEditorMessage(UncreatedZoneEditor.Instance.Translations.Translate("PolygonIntersectsItself"));
                 }
             }
         }
@@ -368,7 +397,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             CancelDrag();
         }
 
-        Vector2 addPoint = FindPointOnNearestLine(in selectPosition, in selectPosition, true, out bool isCloseEnoughToAddOnLine, out int addIndex);
+        Vector2 addPoint = FindPointOnNearestLine(in selectPosition, in selectPosition, false, out bool isCloseEnoughToAddOnLine, out int addIndex);
 
         if (!isCloseEnoughToAddOnLine)
             addPoint = selectPosition;
@@ -381,20 +410,17 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         {
             Vector3 center = _polygonEditTarget!.Center;
 
-            UncreatedZoneEditor.Instance.LogDebug($"Adding new ponit: {addPoint}, {isCloseEnoughToAddOnLine}, {addIndex}.");
+            UncreatedZoneEditor.Instance.LogDebug($"Adding new point: {addPoint}, {isCloseEnoughToAddOnLine}, {addIndex}.");
 
             // move cursor to the selected spot
             if (isCloseEnoughToAddOnLine && Application.platform is RuntimePlatform.WindowsEditor or RuntimePlatform.WindowsPlayer or RuntimePlatform.WindowsServer)
             {
-                Vector3 screenPos = MainCamera.instance.WorldToScreenPoint(new Vector3(addPoint.x, 0f, addPoint.y));
-                WindowsCursorPositionHelper.SetCursorPos(Mathf.RoundToInt(screenPos.x), Mathf.RoundToInt(screenPos.y));
+                Vector2 screenPos = MainCamera.instance.WorldToScreenPoint(new Vector3(addPoint.x, 0f, addPoint.y));
+                WindowsCursorPositionHelper.SetCursorPosition(screenPos);
             }
 
-            if (!isCloseEnoughToAddOnLine)
-            {
-                FindPointOnNearestLine(in selectPosition, in selectPosition, true, out _, out addIndex);
-                UncreatedZoneEditor.Instance.LogDebug($"New addIndex: {addIndex}.");
-            }
+            FindPointOnNearestLine(in addPoint, in selectPosition, true, out _, out addIndex);
+            UncreatedZoneEditor.Instance.LogDebug($"New addIndex: {addIndex}.");
 
             poly2.TempAddPoint(new Vector2(addPoint.x - center.x, addPoint.y - center.z), addIndex);
             _vertexDragIndex = addIndex;
@@ -506,7 +532,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         in Vector2 worldPos,
         in Vector2 mouseWorldPos,
         bool requireInSegment,
-        out bool isCloseEnoughToAddOnLine,
+        out bool isOnLine,
         out int addIndex
     )
     {
@@ -516,7 +542,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
 
         float minSqrDist = 0f;
         Vector2 pointOnLine = default;
-        int index = 0;
+        int index = -1;
         for (int i = 0; i < points.Length; ++i)
         {
             GetPoint2d(i, out Vector2 pt, in mouseWorldPos, in center, points);
@@ -524,24 +550,21 @@ public class ZoneEditorTool : DevkitServerSelectionTool
 
             Vector2 dir2 = (next - pt).normalized;
             float sqrDist = SqrDistanceToLine(in pt, in dir2, in worldPos);
-            if (i != 0 && sqrDist >= minSqrDist)
+
+            if (index != -1 && sqrDist >= minSqrDist)
                 continue;
 
             Vector2 testPoint = ClosestPointOnLine(in pt, in dir2, in worldPos);
-
-            if (requireInSegment && (testPoint.x < Math.Min(pt.x, next.x)
+            
+            
+            if (testPoint.x < Math.Min(pt.x, next.x)
                 || testPoint.x > Math.Max(pt.x, next.x)
                 || testPoint.y < Math.Min(pt.y, next.y)
-                || testPoint.y > Math.Max(pt.y, next.y)))
+                || testPoint.y > Math.Max(pt.y, next.y))
             {
-                // not part of segment
-                continue;
-            }
-
-            // only let continuing snap from outside the polygon
-            if (!requireInSegment && InsidePolygon(testPoint - center, points))
-            {
-                continue;
+                // only let continuing snap from outside the polygon
+                if (requireInSegment || InsidePolygon(testPoint - center, points))
+                    continue;
             }
 
             index = i;
@@ -549,7 +572,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             pointOnLine = testPoint;
         }
 
-        isCloseEnoughToAddOnLine = MathF.Pow(worldPos.x - pointOnLine.x, 2) + MathF.Pow(worldPos.y - pointOnLine.y, 2) <= 12f;
+        isOnLine = MathF.Pow(worldPos.x - pointOnLine.x, 2) + MathF.Pow(worldPos.y - pointOnLine.y, 2) <= 12f;
         addIndex = (index + 1) % points.Length;
 
         return pointOnLine;
@@ -566,14 +589,18 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             if (relPoint.y < Math.Min(point.y, next.y) || relPoint.y >= Math.Max(point.y, next.y))
                 continue;
 
-            if (Math.Abs(point.x - next.x) < 0.001f && next.x < relPoint.x)
+            if (Math.Abs(point.x - next.x) < 0.001f)
+            {
+                if (next.x >= relPoint.x)
+                    ++intersects;
                 continue;
+            }
 
             float dx = point.x - next.x,
                   dy = point.y - next.y;
 
             float m = dy / dx;
-            float intx = -(m * point.x - next.y);
+            float intx = -(m * point.x - point.y);
 
             float xPos = (relPoint.y - intx) / m;
             if (xPos >= relPoint.x)
@@ -624,7 +651,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         for (int i = 8; i < 16; ++i)
             SnapBufferOrigins[i] = nextPoint;
 
-        for (int i = 0; i < 1; ++i)
+        for (int i = 0; i < 2; ++i)
         {
             int index = i * 8;
             SnapBufferDirections[index]     = Vector2.right;

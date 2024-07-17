@@ -184,6 +184,16 @@ public class PolygonZoneComponent : BaseZoneComponent
         if (beforeIndex < 0)
             beforeIndex = _points.Count;
 
+        for (int i = 0; i < _points.Count; ++i)
+        {
+            Vector2 pt = _points[i];
+            if (Math.Abs(location.x - pt.x) <= 0.001f && Math.Abs(location.y - pt.y) <= 0.001f)
+            {
+                UncreatedZoneEditor.Instance.LogWarning($"Tried to add duplicate vertex: {location.Format("F1")} ({beforeIndex.Format()}).");
+                return false;
+            }
+        }
+
         ThreadUtil.assertIsGameThread();
 
         if (Model.PolygonInfo == null || Model.PolygonInfo.Points.Length < beforeIndex || beforeIndex < 0)
@@ -213,10 +223,21 @@ public class PolygonZoneComponent : BaseZoneComponent
         if (Model.PolygonInfo == null || Model.PolygonInfo.Points.Length <= index || index < 0)
             throw new ArgumentOutOfRangeException(nameof(index), "Index does not correspond to a point.");
 
+        wasTempAdd = _tempAddedPointIndex == index;
+
+        for (int i = 0; i < _points.Count; ++i)
+        {
+            Vector2 pt = _points[i];
+            if (i != index && Math.Abs(location.x - pt.x) <= 0.001f && Math.Abs(location.y - pt.y) <= 0.001f)
+            {
+                UncreatedZoneEditor.Instance.LogWarning($"Tried to move duplicate vertex: {location.Format("F1")} ({index.Format()}).");
+                return false;
+            }
+        }
+
         Vector3 old = _points[index];
         _points[index] = location;
 
-        wasTempAdd = _tempAddedPointIndex == index;
         if (wasTempAdd)
         {
             _tempAddedPointIndex = -1;
@@ -259,6 +280,7 @@ public class PolygonZoneComponent : BaseZoneComponent
     }
 
     private static int[]? _triBuffer;
+    internal bool CheckPointsValid() => CheckPointsValid(_points);
     internal static bool CheckPointsValid(List<Vector2> pts)
     {
         try
@@ -278,6 +300,52 @@ public class PolygonZoneComponent : BaseZoneComponent
         }
     }
 
+    /// <summary>
+    /// Merge sequential points that are close enough to each other into one point.
+    /// </summary>
+    /// <param name="distance"></param>
+    public void MergeByDistance(float distance = 0.001f)
+    {
+        bool wasChanged = false;
+        List<Vector2> pts = _points;
+
+        for (int i = 0; i < pts.Count; ++i)
+        {
+            Vector2 pt = pts[i];
+
+            int max = pts.Count;
+            int j = i + 1;
+            if (i == pts.Count - 1)
+            {
+                max = i;
+                j = 0;
+            }
+
+            for (; j < max; ++j)
+            {
+                Vector2 pt2 = pts[j];
+                if (Math.Abs(pt2.x - pt.x) > distance || Math.Abs(pt2.y - pt.y) > distance)
+                    break; // only check sequential points
+
+                pts.RemoveAt(j);
+                --j;
+                wasChanged = true;
+                UncreatedZoneEditor.Instance.LogWarning($"Removed duplicate vertex: {pt2.Format("F1")} ({j.Format()}).");
+            }
+        }
+
+        if (!wasChanged)
+            return;
+
+        if (UserControl.ActiveTool is ZoneEditorTool tool)
+        {
+            tool.CancelDrag();
+        }
+
+        (Model.PolygonInfo ??= new ZonePolygonInfo()).Points = _points.ToArray();
+        _meshDirty = true;
+        InvokeDimensionUpdate();
+    }
 
     [UsedImplicitly]
     private void LateUpdate()
@@ -285,9 +353,11 @@ public class PolygonZoneComponent : BaseZoneComponent
         if (!_meshDirty || UserControl.ActiveTool is ZoneEditorTool { PolygonEditTarget: not null })
             return;
 
+        MergeByDistance();
+
         Mesh mesh = PolygonMeshGenerator.CreateMesh(_points, -1,
             !float.IsFinite(MinimumHeight) ? Landscape.TILE_HEIGHT / -2f : MinimumHeight,
-            !float.IsFinite(MaximumHeight) ? Landscape.TILE_HEIGHT / 2f : MaximumHeight, 
+            !float.IsFinite(MaximumHeight) ? Landscape.TILE_HEIGHT / 2f : MaximumHeight,
             Vector3.zero, out _
         );
 

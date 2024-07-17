@@ -24,10 +24,11 @@ public static class EditorZones
     private static readonly CachedMulticastEvent<ZoneRemoved> EventOnZoneRemoved = new CachedMulticastEvent<ZoneRemoved>(typeof(EditorZones), nameof(OnZoneRemoved));
     private static readonly CachedMulticastEvent<ZoneIndexUpdated> EventOnZoneIndexUpdated = new CachedMulticastEvent<ZoneIndexUpdated>(typeof(EditorZones), nameof(OnZoneIndexUpdated));
     internal static readonly CachedMulticastEvent<ZoneDimensionsUpdated> EventOnZoneDimensionsUpdated = new CachedMulticastEvent<ZoneDimensionsUpdated>(typeof(EditorZones), nameof(OnZoneDimensionsUpdated));
-    private static readonly CachedMulticastEvent<ZoneSelectionUpdated> EventOnZoneSelectionUpdated = new CachedMulticastEvent<ZoneSelectionUpdated>(typeof(EditorZones), nameof(OnZoneSelectionUpdated));
     private static readonly CachedMulticastEvent<ZoneShapeUpdated> EventOnZoneShapeUpdated = new CachedMulticastEvent<ZoneShapeUpdated>(typeof(EditorZones), nameof(OnZoneShapeUpdated));
-
+#if CLIENT
+    private static readonly CachedMulticastEvent<ZoneSelectionUpdated> EventOnZoneSelectionUpdated = new CachedMulticastEvent<ZoneSelectionUpdated>(typeof(EditorZones), nameof(OnZoneSelectionUpdated));
     internal static readonly List<BaseZoneComponent> ComponentsPendingUndo = new List<BaseZoneComponent>(4);
+#endif
 
     /// <summary>
     /// Invoked when a zone is added locally.
@@ -290,13 +291,13 @@ public static class EditorZones
         LevelZones.ZoneList.RemoveAt(index);
         UncreatedZoneEditor.Instance.isDirty = true;
 
+#if CLIENT
         foreach (BaseZoneComponent comp in ComponentsPendingUndo)
         {
             if (comp.AddBackAtIndex > index)
                 --comp.AddBackAtIndex;
         }
 
-#if CLIENT
         if (model.Component != null)
         {
             model.Component.IsRemoved = true;
@@ -470,4 +471,6 @@ public delegate void ZoneRemoved(ZoneModel model);
 public delegate void ZoneIndexUpdated(ZoneModel model, int oldIndex);
 public delegate void ZoneShapeUpdated(ZoneModel model, ZoneShape oldShape);
 public delegate void ZoneDimensionsUpdated(ZoneModel model);
+#if CLIENT
 public delegate void ZoneSelectionUpdated(ZoneModel selectedOrDeselected, bool wasSelected);
+#endif

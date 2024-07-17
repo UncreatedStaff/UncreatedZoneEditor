@@ -35,8 +35,10 @@ public static class LevelZones
     internal static void Unload()
     {
         Level.onLevelLoaded -= OnLevelLoaded;
+#if CLIENT
         EditorZones.Unload();
-    }
+#endif
+}
 
     private static void OnLevelLoaded(int level)
     {
@@ -71,6 +73,8 @@ public static class LevelZones
 
         _zoneList.Configuration = newConfig;
         _zoneList.SaveConfig();
+
+        UncreatedZoneEditor.Instance.LogInfo($"Saved {newConfig.Zones.Count.Format()} zone(s).");
     }
 
     public static void ReadZones()

@@ -65,7 +65,8 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "StopEditPolygonButton", "Exit" },
         { "EditPolygonNotSelected", "Must have exactly 1 polygon selected." },
 
-        { "PolygonIntersectsItself", "Modifying the polygon will\ncause it to intersect itself." }
+        { "PolygonIntersectsItself", "Modifying the polygon will\ncause it to intersect itself." },
+        { "ZoneToolHint", "[SHIFT] Snap to lines | [CTRL] Snap to grid\n[E] Add | Hold [L-Click] to select. " }
     };
 
 #if DEBUG
