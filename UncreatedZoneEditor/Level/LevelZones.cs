@@ -119,5 +119,40 @@ public static class LevelZones
 
             ZoneList.Add(model);
         }
+
+        // fixup name clusters
+        for (int i = 0; i < ZoneList.Count; ++i)
+        {
+            ZoneModel zone = ZoneList[i];
+            if (string.IsNullOrWhiteSpace(zone.Name))
+                zone.Name = Guid.NewGuid().ToString("N");
+
+            string name = zone.Name;
+            bool anyPrimary = zone.IsPrimary;
+            for (int j = 0; j < ZoneList.Count; ++j)
+            {
+                ZoneModel zone2 = ZoneList[j];
+                if (i == j || !zone2.Name.Equals(name, StringComparison.Ordinal) || !zone2.IsPrimary)
+                    continue;
+                
+                if (anyPrimary)
+                {
+                    zone2.IsPrimary = false;
+                    if (Level.isEditor)
+                        UncreatedZoneEditor.Instance.isDirty = true;
+                }
+                else
+                {
+                    anyPrimary = true;
+                }
+            }
+
+            if (anyPrimary)
+                continue;
+
+            zone.IsPrimary = true;
+            if (Level.isEditor)
+                UncreatedZoneEditor.Instance.isDirty = true;
+        }
     }
 }

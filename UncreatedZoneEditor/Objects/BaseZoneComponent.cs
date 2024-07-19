@@ -1,9 +1,8 @@
 ﻿#if CLIENT
-using System.Globalization;
 using Cysharp.Threading.Tasks;
 using DevkitServer;
 using SDG.Framework.Devkit.Interactable;
-using SDG.Framework.Utilities;
+using System.Globalization;
 using Uncreated.ZoneEditor.Data;
 
 namespace Uncreated.ZoneEditor.Objects;
@@ -19,7 +18,9 @@ public abstract class BaseZoneComponent : MonoBehaviour,
     internal int AddBackAtIndex = -1;
     internal bool IsRemoved;
     internal bool IsRemovedForShapeChange;
-#nullable disable
+    protected static readonly Color GizmoNonPrimaryColor = new Color32(140, 140, 140, 255);
+    protected static readonly Color GizmoPrimaryColor = Color.white;
+#nullable disable   
     public Collider Collider { get; protected set; }
     public ZoneModel Model { get; private set; }
 #nullable restore
@@ -78,8 +79,10 @@ public abstract class BaseZoneComponent : MonoBehaviour,
 
     public virtual void RenderGizmos(RuntimeGizmos gizmos)
     {
-        gizmos.Arrow(transform.position + Vector3.up * 10f, Vector3.down, 10f, Color.green);
-        gizmos.Arrow(transform.position + Vector3.up * 10f, Vector3.down, 10f, Color.green);
+        if (Model.IsPrimary)
+        {
+            gizmos.Arrow(transform.position + Vector3.up * 10f, Vector3.down, 10f, Color.green);
+        }
     }
 
     void IDevkitInteractableBeginSelectionHandler.beginSelection(InteractionData data)

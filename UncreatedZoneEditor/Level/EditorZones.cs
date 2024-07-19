@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using Uncreated.ZoneEditor.Data;
 #if CLIENT
+using System.Collections.Generic;
+using System.Linq;
 using SDG.Framework.Devkit;
 using Uncreated.ZoneEditor.Objects;
 using Uncreated.ZoneEditor.Tools;
@@ -25,6 +25,9 @@ public static class EditorZones
     private static readonly CachedMulticastEvent<ZoneIndexUpdated> EventOnZoneIndexUpdated = new CachedMulticastEvent<ZoneIndexUpdated>(typeof(EditorZones), nameof(OnZoneIndexUpdated));
     internal static readonly CachedMulticastEvent<ZoneDimensionsUpdated> EventOnZoneDimensionsUpdated = new CachedMulticastEvent<ZoneDimensionsUpdated>(typeof(EditorZones), nameof(OnZoneDimensionsUpdated));
     private static readonly CachedMulticastEvent<ZoneShapeUpdated> EventOnZoneShapeUpdated = new CachedMulticastEvent<ZoneShapeUpdated>(typeof(EditorZones), nameof(OnZoneShapeUpdated));
+    private static readonly CachedMulticastEvent<ZoneNameUpdated> EventOnZoneNameUpdated = new CachedMulticastEvent<ZoneNameUpdated>(typeof(EditorZones), nameof(OnZoneNameUpdated));
+    private static readonly CachedMulticastEvent<ZoneShortNameUpdated> EventOnZoneShortNameUpdated = new CachedMulticastEvent<ZoneShortNameUpdated>(typeof(EditorZones), nameof(OnZoneShortNameUpdated));
+    private static readonly CachedMulticastEvent<ZonePrimaryUpdated> EventOnZonePrimaryUpdated = new CachedMulticastEvent<ZonePrimaryUpdated>(typeof(EditorZones), nameof(OnZonePrimaryUpdated));
 #if CLIENT
     private static readonly CachedMulticastEvent<ZoneSelectionUpdated> EventOnZoneSelectionUpdated = new CachedMulticastEvent<ZoneSelectionUpdated>(typeof(EditorZones), nameof(OnZoneSelectionUpdated));
     internal static readonly List<BaseZoneComponent> ComponentsPendingUndo = new List<BaseZoneComponent>(4);
@@ -73,6 +76,33 @@ public static class EditorZones
     {
         add => EventOnZoneShapeUpdated.Add(value);
         remove => EventOnZoneShapeUpdated.Remove(value);
+    }
+    
+    /// <summary>
+    /// Invoked when a zone's name is changed locally.
+    /// </summary>
+    public static event ZoneNameUpdated OnZoneNameUpdated
+    {
+        add => EventOnZoneNameUpdated.Add(value);
+        remove => EventOnZoneNameUpdated.Remove(value);
+    }
+    
+    /// <summary>
+    /// Invoked when a zone's short name is changed locally.
+    /// </summary>
+    public static event ZoneShortNameUpdated OnZoneShortNameUpdated
+    {
+        add => EventOnZoneShortNameUpdated.Add(value);
+        remove => EventOnZoneShortNameUpdated.Remove(value);
+    }
+    
+    /// <summary>
+    /// Invoked when a zone's primary/secondary setting is updated.
+    /// </summary>
+    public static event ZonePrimaryUpdated OnZonePrimaryUpdated
+    {
+        add => EventOnZonePrimaryUpdated.Add(value);
+        remove => EventOnZonePrimaryUpdated.Remove(value);
     }
 
 #if CLIENT
@@ -164,8 +194,18 @@ public static class EditorZones
             Shape = shape,
             Creator = creator,
             SpawnYaw = spawnYaw,
-            Index = index
+            Index = index,
+            IsPrimary = true
         };
+
+        for (int i = 0; i < LevelZones.ZoneList.Count; ++i)
+        {
+            if (!LevelZones.ZoneList[i].Name.Equals(name, StringComparison.Ordinal))
+                continue;
+
+            model.IsPrimary = false;
+            break;
+        }
 
 #if SERVER
         if (DevkitServerModule.IsEditing)
@@ -225,6 +265,17 @@ public static class EditorZones
 
         if (index >= 0)
             return obj;
+
+        string name = model.Name;
+        model.IsPrimary = true;
+        for (int i = 0; i < LevelZones.ZoneList.Count; ++i)
+        {
+            if (!LevelZones.ZoneList[i].Name.Equals(name, StringComparison.Ordinal))
+                continue;
+
+            model.IsPrimary = false;
+            break;
+        }
 
         LevelZones.ZoneList.Insert(targetIndex, model);
 
@@ -286,9 +337,30 @@ public static class EditorZones
             DevkitSelectionManager.remove(selected);
         }
 #endif
+        if (model.IsPrimary)
+        {
+            // re-assign primary | todo this needs to be controlled by the server
+            string name = model.Name;
+            for (int i = 0; i < LevelZones.ZoneList.Count; ++i)
+            {
+                if (i == index)
+                    continue;
+
+                ZoneModel zone2 = LevelZones.ZoneList[i];
+                if (!zone2.Name.Equals(name, StringComparison.Ordinal))
+                    continue;
+
+                zone2.IsPrimary = true;
+                model.IsPrimary = false;
+                EventOnZonePrimaryUpdated.TryInvoke(model);
+                EventOnZonePrimaryUpdated.TryInvoke(zone2);
+                break;
+            }
+        }
 
         model.Index = index;
         LevelZones.ZoneList.RemoveAt(index);
+
         UncreatedZoneEditor.Instance.isDirty = true;
 
 #if CLIENT
@@ -348,6 +420,152 @@ public static class EditorZones
     }
 #endif
 
+    #region Setters
+    /// <summary>
+    /// Change a zone's name locally.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is <see langword="null"/> or whitespace.</exception>
+    public static void SetZoneNameLocal(int index, string name)
+    {
+        ThreadUtil.assertIsGameThread();
+        AssertEditor();
+        AssertValidIndex(index);
+
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name must not be whitespace or null.");
+
+        ZoneModel zone = LevelZones.ZoneList[index];
+
+        string oldName = zone.Name;
+        if (string.Equals(oldName, name, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        zone.Name = name;
+
+        bool oldPrimary = zone.IsPrimary;
+
+        // check for existing primaries
+        bool foundAny = false;
+        for (int i = 0; i < LevelZones.ZoneList.Count; ++i)
+        {
+            ZoneModel zone2 = LevelZones.ZoneList[i];
+            if (i == index || !zone2.Name.Equals(name, StringComparison.Ordinal))
+                continue;
+
+            foundAny = true;
+            break;
+        }
+
+        if (oldPrimary)
+        {
+            zone.IsPrimary = false;
+            EventOnZonePrimaryUpdated.TryInvoke(zone);
+        }
+
+        if (oldPrimary)
+        {
+            // assign a new primary
+            for (int i = 0; i < LevelZones.ZoneList.Count; ++i)
+            {
+                if (i == index)
+                    continue;
+
+                ZoneModel zone2 = LevelZones.ZoneList[i];
+                if (!zone2.Name.Equals(oldName, StringComparison.Ordinal))
+                    continue;
+
+                zone2.IsPrimary = true;
+                EventOnZonePrimaryUpdated.TryInvoke(zone2);
+                break;
+            }
+        }
+
+        if (!foundAny)
+        {
+            zone.IsPrimary = true;
+            EventOnZonePrimaryUpdated.TryInvoke(zone);
+        }
+
+        EventOnZoneNameUpdated.TryInvoke(zone, oldName);
+        UncreatedZoneEditor.Instance.isDirty = true;
+    }
+
+    /// <summary>
+    /// Change a zone's short name locally, along with all other zones in its name cluster.
+    /// </summary>
+    /// <remarks>Any empty or whitespace-only short name will be saved as <see langword="null"/>.</remarks>
+    public static void SetZoneShortNameLocal(int index, string? shortName)
+    {
+        ThreadUtil.assertIsGameThread();
+        AssertEditor();
+        AssertValidIndex(index);
+
+        if (string.IsNullOrWhiteSpace(shortName))
+            shortName = null;
+
+        ZoneModel zone = LevelZones.ZoneList[index];
+
+        string? oldName = zone.ShortName;
+        if (string.Equals(shortName, oldName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        zone.ShortName = shortName;
+        EventOnZoneShortNameUpdated.TryInvoke(zone, oldName);
+
+        for (int i = 0; i < LevelZones.ZoneList.Count; ++i)
+        {
+            ZoneModel zone2 = LevelZones.ZoneList[i];
+            if (i == index || !zone2.Name.Equals(zone.Name, StringComparison.Ordinal))
+                continue;
+
+            zone2.ShortName = shortName;
+            EventOnZoneShortNameUpdated.TryInvoke(zone2, oldName);
+        }
+
+        UncreatedZoneEditor.Instance.isDirty = true;
+    }
+
+    /// <summary>
+    /// Mark a zone as the primary zone out of it's name cluster.
+    /// </summary>
+    public static void MarkZoneAsPrimary(int index)
+    {
+        ThreadUtil.assertIsGameThread();
+        AssertEditor();
+        AssertValidIndex(index);
+        ZoneModel zone = LevelZones.ZoneList[index];
+        string name = zone.Name;
+
+        for (int i = 0; i < LevelZones.ZoneList.Count; ++i)
+        {
+            if (i == index)
+                continue;
+
+            ZoneModel zone2 = LevelZones.ZoneList[i];
+            if (!zone2.Name.Equals(name, StringComparison.Ordinal) || !zone2.IsPrimary)
+                continue;
+
+            zone2.IsPrimary = false;
+            EventOnZonePrimaryUpdated.TryInvoke(zone2);
+        }
+
+        zone.IsPrimary = true;
+        EventOnZonePrimaryUpdated.TryInvoke(zone);
+    }
+    #endregion
+
+    private static void AssertValidIndex(int index)
+    {
+        if (index < 0 || index >= LevelZones.ZoneList.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), "Given index does not correlate to a valid entry in LevelZones.LoadedZones.");
+        }
+    }
+
     /// <summary>
     /// Change a zone's shape without replicating.
     /// </summary>
@@ -371,12 +589,7 @@ public static class EditorZones
     {
         ThreadUtil.assertIsGameThread();
         AssertEditor();
-
-        if (index < 0 || index >= LevelZones.ZoneList.Count)
-        {
-            throw new ArgumentOutOfRangeException(nameof(index), "Given index does not correlate to a valid entry in LevelZones.LoadedZones.");
-        }
-
+        AssertValidIndex(index);
         ChangeShapeLocal(LevelZones.ZoneList[index], index, shape);
     }
 
@@ -470,6 +683,9 @@ public delegate void ZoneAdded(ZoneModel model);
 public delegate void ZoneRemoved(ZoneModel model);
 public delegate void ZoneIndexUpdated(ZoneModel model, int oldIndex);
 public delegate void ZoneShapeUpdated(ZoneModel model, ZoneShape oldShape);
+public delegate void ZoneNameUpdated(ZoneModel model, string oldName);
+public delegate void ZoneShortNameUpdated(ZoneModel model, string? oldShortName);
+public delegate void ZonePrimaryUpdated(ZoneModel model);
 public delegate void ZoneDimensionsUpdated(ZoneModel model);
 #if CLIENT
 public delegate void ZoneSelectionUpdated(ZoneModel selectedOrDeselected, bool wasSelected);

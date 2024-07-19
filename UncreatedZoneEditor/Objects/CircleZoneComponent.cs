@@ -135,7 +135,7 @@ public class CircleZoneComponent : BaseZoneComponent
 
         Vector3 scale = transform.localScale;
         float radius = Math.Min(scale.x, scale.z);
-        gizmos.Cylinder(transform.position, Vector3.up, scale.y, radius, Color.white, alongTerrain: IsSelected);
+        gizmos.Cylinder(transform.position, Vector3.up, scale.y, radius, Model.IsPrimary ? GizmoPrimaryColor : GizmoNonPrimaryColor, alongTerrain: IsSelected);
     }
 
     public override void RevertToDefault()

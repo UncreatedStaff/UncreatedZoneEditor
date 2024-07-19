@@ -105,6 +105,7 @@ public class PolygonZoneComponent : BaseZoneComponent
 
         float maxPosY = !float.IsFinite(_maxHeight) ? Landscape.TILE_HEIGHT / 2f : _maxHeight;
         float minPosY = !float.IsFinite(_minHeight) ? Landscape.TILE_HEIGHT / -2f : _minHeight;
+        Color color = Model.IsPrimary ? GizmoPrimaryColor : GizmoNonPrimaryColor;
         for (int i = 0; i < _points.Count; ++i)
         {
             Vector2 point = _points[i];
@@ -113,12 +114,12 @@ public class PolygonZoneComponent : BaseZoneComponent
             Vector3 worldPt = transform.TransformPoint(new Vector3(point.x, 0f, point.y));
             Vector3 nextWorldPt = transform.TransformPoint(new Vector3(nextPoint.x, 0f, nextPoint.y));
 
-            gizmos.Line(worldPt with { y = minPosY }, nextWorldPt with { y = minPosY }, Color.white);
-            gizmos.Line(worldPt with { y = maxPosY }, nextWorldPt with { y = maxPosY }, Color.white);
-            gizmos.Line(worldPt with { y = minPosY }, worldPt with { y = maxPosY }, Color.white);
+            gizmos.Line(worldPt with { y = minPosY }, nextWorldPt with { y = minPosY }, color);
+            gizmos.Line(worldPt with { y = maxPosY }, nextWorldPt with { y = maxPosY }, color);
+            gizmos.Line(worldPt with { y = minPosY }, worldPt with { y = maxPosY }, color);
             if (IsSelected)
             {
-                gizmos.LineAlongTerrain(worldPt, nextWorldPt, Color.white);
+                gizmos.LineAlongTerrain(worldPt, nextWorldPt, color);
             }
         }
     }
@@ -270,13 +271,14 @@ public class PolygonZoneComponent : BaseZoneComponent
         Model.PolygonInfo!.Points = _points.ToArray();
     }
 
-    public void TryAbandonTempPoint()
+    public bool TryAbandonTempPoint()
     {
         if (_tempAddedPointIndex < 0)
-            return;
+            return false;
 
         _points.RemoveAt(_tempAddedPointIndex);
         Model.PolygonInfo!.Points = _points.ToArray();
+        return true;
     }
 
     private static int[]? _triBuffer;

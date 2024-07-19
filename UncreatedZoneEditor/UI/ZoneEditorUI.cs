@@ -3,7 +3,6 @@ using DanielWillett.ReflectionTools;
 using SDG.Framework.Devkit;
 using SDG.Framework.Landscapes;
 using System;
-using System.Globalization;
 using System.Linq;
 using Uncreated.ZoneEditor.Data;
 using Uncreated.ZoneEditor.Objects;
@@ -30,6 +29,7 @@ public class ZoneEditorUI : SleekFullscreenBox
     private readonly ISleekSlider _maxHeightSlider;
     private readonly ISleekToggle _maxHeightInfinityToggle;
     private readonly ISleekButton _polygonEditButton;
+    private readonly ISleekButton _markAsPrimaryButton;
     private readonly SleekList<ZoneModel> _zoneList;
     private readonly SleekButtonState _shapeToggle;
     public ZoneShape SelectedShape
@@ -117,8 +117,6 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_polygonEditButton);
 
-        float h = 0;
-
         _shapeToggle = new SleekButtonState
         (
             [
@@ -130,7 +128,6 @@ public class ZoneEditorUI : SleekFullscreenBox
         {
             PositionScale_Y = 1f,
             PositionOffset_X = 0f,
-            PositionOffset_Y = h - 30f,
             SizeOffset_Y = 30f,
             SizeOffset_X = 230f,
             tooltip = UncreatedZoneEditor.Instance.Translations.Translate("ShapeTooltip")
@@ -141,12 +138,9 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_shapeToggle);
 
-        h -= 35f;
-
         _shortNameField = Glazier.Get().CreateStringField();
         _shortNameField.PositionScale_Y = 1f;
         _shortNameField.PositionOffset_X = 0f;
-        _shortNameField.PositionOffset_Y = h - 30f;
         _shortNameField.SizeOffset_Y = 30f;
         _shortNameField.SizeOffset_X = 230f;
         _shortNameField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("ShortNameTooltip");
@@ -155,12 +149,9 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_shortNameField);
 
-        h -= 35f;
-
         _nameField = Glazier.Get().CreateStringField();
         _nameField.PositionScale_Y = 1f;
         _nameField.PositionOffset_X = 0f;
-        _nameField.PositionOffset_Y = h - 30f;
         _nameField.SizeOffset_Y = 30f;
         _nameField.SizeOffset_X = 230f;
         _nameField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("NameTooltip");
@@ -169,12 +160,9 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_nameField);
 
-        h -= 35f;
-
         _minHeightSlider = Glazier.Get().CreateSlider();
         _minHeightSlider.PositionScale_Y = 1f;
         _minHeightSlider.PositionOffset_X = 0f;
-        _minHeightSlider.PositionOffset_Y = h - 25f;
         _minHeightSlider.SizeOffset_Y = 20f;
         _minHeightSlider.Orientation = ESleekOrientation.HORIZONTAL;
         _minHeightSlider.Value = 0;
@@ -187,7 +175,6 @@ public class ZoneEditorUI : SleekFullscreenBox
         _minHeightInfinityToggle = Glazier.Get().CreateToggle();
         _minHeightInfinityToggle.PositionScale_Y = 1f;
         _minHeightInfinityToggle.PositionOffset_X = 235f;
-        _minHeightInfinityToggle.PositionOffset_Y = h - 35f;
         _minHeightInfinityToggle.SizeOffset_Y = 40f;
         _minHeightInfinityToggle.SizeOffset_X = 40f;
         _minHeightInfinityToggle.Value = true;
@@ -197,12 +184,9 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_minHeightInfinityToggle);
 
-        h -= 35f;
-
         _minHeightField = Glazier.Get().CreateFloat32Field();
         _minHeightField.PositionScale_Y = 1f;
         _minHeightField.PositionOffset_X = 0f;
-        _minHeightField.PositionOffset_Y = h - 30f;
         _minHeightField.SizeOffset_Y = 30f;
         _minHeightField.SizeOffset_X = 230f;
         _minHeightField.Value = float.NegativeInfinity;
@@ -212,12 +196,9 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_minHeightField);
 
-        h -= 35f;
-
         _maxHeightSlider = Glazier.Get().CreateSlider();
         _maxHeightSlider.PositionScale_Y = 1f;
         _maxHeightSlider.PositionOffset_X = 0f;
-        _maxHeightSlider.PositionOffset_Y = h - 25f;
         _maxHeightSlider.SizeOffset_Y = 20f;
         _maxHeightSlider.Orientation = ESleekOrientation.HORIZONTAL;
         _maxHeightSlider.IsInteractable = false;
@@ -229,7 +210,6 @@ public class ZoneEditorUI : SleekFullscreenBox
         _maxHeightInfinityToggle = Glazier.Get().CreateToggle();
         _maxHeightInfinityToggle.PositionScale_Y = 1f;
         _maxHeightInfinityToggle.PositionOffset_X = 235f;
-        _maxHeightInfinityToggle.PositionOffset_Y = h - 35f;
         _maxHeightInfinityToggle.SizeOffset_Y = 40f;
         _maxHeightInfinityToggle.SizeOffset_X = 40f;
         _maxHeightInfinityToggle.Value = true;
@@ -239,12 +219,9 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_maxHeightInfinityToggle);
 
-        h -= 35f;
-
         _maxHeightField = Glazier.Get().CreateFloat32Field();
         _maxHeightField.PositionScale_Y = 1f;
         _maxHeightField.PositionOffset_X = 0f;
-        _maxHeightField.PositionOffset_Y = h - 30f;
         _maxHeightField.SizeOffset_Y = 30f;
         _maxHeightField.SizeOffset_X = 230f;
         _maxHeightField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("MaxHeightTooltip");
@@ -253,12 +230,26 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_maxHeightField);
 
-        //h -= 35f;
+        _markAsPrimaryButton = Glazier.Get().CreateButton();
+        _markAsPrimaryButton.PositionScale_Y = 1f;
+        _markAsPrimaryButton.PositionOffset_X = 0f;
+        _markAsPrimaryButton.SizeOffset_Y = 30f;
+        _markAsPrimaryButton.SizeOffset_X = 230f;
+        _markAsPrimaryButton.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("SetAsPrimaryTooltip");
+        _markAsPrimaryButton.Text = UncreatedZoneEditor.Instance.Translations.Translate("SetAsPrimaryButton");
+        _markAsPrimaryButton.OnClicked += OnMarkPrimary;
+
+        AddChild(_markAsPrimaryButton);
+
+        UpdateBottomLeftStack();
 
         EditorZones.OnZoneAdded += UpdateZoneList;
         EditorZones.OnZoneRemoved += UpdateZoneList;
         EditorZones.OnZoneSelectionUpdated += SelectionChanged;
         EditorZones.OnZoneShapeUpdated += ShapeChanged;
+        EditorZones.OnZoneNameUpdated += NameOrShortNameChanged;
+        EditorZones.OnZoneShortNameUpdated += NameOrShortNameChanged;
+        EditorZones.OnZonePrimaryUpdated += PrimaryUpdated;
     }
 
     public override void OnDestroy()
@@ -269,7 +260,92 @@ public class ZoneEditorUI : SleekFullscreenBox
         EditorZones.OnZoneRemoved -= UpdateZoneList;
         EditorZones.OnZoneSelectionUpdated -= SelectionChanged;
         EditorZones.OnZoneShapeUpdated -= ShapeChanged;
+        EditorZones.OnZoneNameUpdated -= NameOrShortNameChanged;
+        EditorZones.OnZoneShortNameUpdated -= NameOrShortNameChanged;
+        EditorZones.OnZonePrimaryUpdated -= PrimaryUpdated;
     }
+
+    private void UpdateBottomLeftStack()
+    {
+        float h = 0;
+        if (_shapeToggle.IsVisible)
+        {
+            h -= _shapeToggle.SizeOffset_Y;
+            _shapeToggle.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
+        if (_shortNameField.IsVisible)
+        {
+            h -= _shortNameField.SizeOffset_Y;
+            _shortNameField.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
+        if (_nameField.IsVisible)
+        {
+            h -= _nameField.SizeOffset_Y;
+            _nameField.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
+        if (_minHeightSlider.IsVisible || _minHeightInfinityToggle.IsVisible)
+        {
+            if (_minHeightSlider.IsVisible)
+            {
+                _minHeightSlider.PositionOffset_Y = h - 25f;
+            }
+            if (_minHeightInfinityToggle.IsVisible)
+            {
+                _minHeightInfinityToggle.PositionOffset_Y = h - 35f;
+            }
+            h -= 35f;
+        }
+
+        if (_minHeightField.IsVisible)
+        {
+            h -= _minHeightField.SizeOffset_Y;
+            _minHeightField.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
+        if (_maxHeightSlider.IsVisible || _maxHeightInfinityToggle.IsVisible)
+        {
+            if (_maxHeightSlider.IsVisible)
+            {
+                _maxHeightSlider.PositionOffset_Y = h - 25f;
+            }
+            if (_maxHeightInfinityToggle.IsVisible)
+            {
+                _maxHeightInfinityToggle.PositionOffset_Y = h - 35f;
+            }
+            h -= 35f;
+        }
+
+        if (_maxHeightField.IsVisible)
+        {
+            h -= _maxHeightField.SizeOffset_Y;
+            _maxHeightField.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
+        if (_markAsPrimaryButton.IsVisible)
+        {
+            h -= _markAsPrimaryButton.SizeOffset_Y;
+            _markAsPrimaryButton.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
+        // make compiler happy
+        _ = h;
+    }
+
+    private void PrimaryUpdated(ZoneModel model)
+    {
+        UpdateFieldsFromSelection();
+        _zoneList.ForceRebuildElements();
+    }
+
     private void OnEditPolygonClicked(ISleekElement button)
     {
         if (UserControl.ActiveTool is not ZoneEditorTool tool)
@@ -299,39 +375,33 @@ public class ZoneEditorUI : SleekFullscreenBox
 
     private void NameFieldUpdated(ISleekField field)
     {
-        string name = field.Text;
+        string name = _nameField.Text;
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            _nameField.Text = EditorZones.EnumerateSelectedZones().FirstOrDefault()?.Name ?? string.Empty;
+            return;
+        }
 
         foreach (ZoneModel zone in EditorZones.EnumerateSelectedZones())
         {
-            string name2 = name;
-
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                name2 = zone.Index.ToString(CultureInfo.InvariantCulture);
-            }
-            zone.Name = name2;
-            // todo EditorZones.Instance.SetZoneShapeLocal(EditorZones.Instance.SelectedZoneIndex, SelectedShape);
+            EditorZones.SetZoneNameLocal(zone.Index, name);
         }
-
-        field.Text = name;
-        _zoneList.NotifyDataChanged();
     }
 
     private void ShortNameFieldUpdated(ISleekField field)
     {
-        string? shortName = field.Text;
+        string? shortName = _shortNameField.Text;
         if (string.IsNullOrWhiteSpace(shortName))
         {
             shortName = null;
+            _shortNameField.Text = string.Empty;
         }
-
+        
         foreach (ZoneModel zone in EditorZones.EnumerateSelectedZones())
         {
-            zone.ShortName = shortName;
-            // todo EditorZones.Instance.SetZoneShapeLocal(EditorZones.Instance.SelectedZoneIndex, SelectedShape);
+            EditorZones.SetZoneShortNameLocal(zone.Index, shortName);
         }
-
-        field.Text = shortName ?? string.Empty;
     }
 
     private void MinHeightFieldUpdated(ISleekFloat32Field field, float value)
@@ -362,6 +432,16 @@ public class ZoneEditorUI : SleekFullscreenBox
     private void MaxHeightInfinityToggleUpdated(ISleekToggle toggle, bool state)
     {
         CurrentMaximumHeight = state ? float.PositiveInfinity : 1024f;
+    }
+
+    private static void OnMarkPrimary(ISleekElement button)
+    {
+        foreach (ZoneModel model in EditorZones.EnumerateSelectedZones())
+        {
+            int index = EditorZones.GetIndexQuick(model);
+            if (index >= 0)
+                EditorZones.MarkZoneAsPrimary(index);
+        }
     }
 
     private void UpdateMinHeightUI(float value)
@@ -452,6 +532,12 @@ public class ZoneEditorUI : SleekFullscreenBox
         }
     }
 
+    private void NameOrShortNameChanged(ZoneModel zone, string? oldValue)
+    {
+        UpdateFieldsFromSelection();
+        _zoneList.ForceRebuildElements();
+    }
+    
     private void ShapeChanged(ZoneModel zone, ZoneShape oldShape)
     {
         UpdateFieldsFromSelection();
@@ -485,13 +571,19 @@ public class ZoneEditorUI : SleekFullscreenBox
     private ISleekElement CreateZoneElement(ZoneModel item)
     {
         ISleekButton button = Glazier.Get().CreateButton();
+        string name = item.Name;
+        if (item.IsPrimary && LevelZones.ZoneList.Exists(x => x != item && x.Name.Equals(item.Name, StringComparison.Ordinal)))
+        {
+            name = "! " + name;
+        }
+
         if (item.ShortName != null && !item.ShortName.Equals(item.Name, StringComparison.Ordinal))
         {
-            button.Text = item.Name + " [" + item.ShortName + "]";
+            button.Text = name + " [" + item.ShortName + "]";
         }
         else
         {
-            button.Text = item.Name;
+            button.Text = name;
         }
 
         button.OnClicked += OnSelectedZoneModel;
@@ -527,16 +619,32 @@ public class ZoneEditorUI : SleekFullscreenBox
             _maxHeightSlider.IsVisible = false;
             _maxHeightField.IsVisible = false;
             _maxHeightInfinityToggle.IsVisible = false;
+            _nameField.Text = string.Empty;
+            _shortNameField.Text = string.Empty;
             _shapeToggle.state = (int)ZoneShape.Polygon;
             _shapeToggle.isInteractable = false;
+            _markAsPrimaryButton.IsVisible = false;
             _polygonEditButton.IsVisible = true;
             _polygonEditButton.Text = UncreatedZoneEditor.Instance.Translations.Translate("StopEditPolygonButton");
+            UpdateBottomLeftStack();
             return;
         }
 
+        _markAsPrimaryButton.IsVisible = true;
+
         bool any = false;
+        bool anyCanBecomePrimary = false;
         foreach (ZoneModel zone in EditorZones.EnumerateSelectedZones())
         {
+            anyCanBecomePrimary = !zone.IsPrimary && LevelZones.ZoneList.Exists(x => x != zone && x.Name.Equals(zone.Name, StringComparison.Ordinal));
+            if (any)
+            {
+                if (anyCanBecomePrimary)
+                    break;
+
+                continue;
+            }
+
             any = true;
             bool heightVisibility = zone.Shape is ZoneShape.Polygon or ZoneShape.Cylinder;
             _shapeToggle.state = (int)zone.Shape;
@@ -569,14 +677,21 @@ public class ZoneEditorUI : SleekFullscreenBox
             {
                 _polygonEditButton.IsVisible = false;
             }
-            break;
+
+            if (anyCanBecomePrimary)
+                break;
         }
 
+        _markAsPrimaryButton.IsClickable = anyCanBecomePrimary;
+
         if (any)
+        {
+            UpdateBottomLeftStack();
             return;
+        }
 
         _shapeToggle.isInteractable = true;
-        _nameField.Text = LevelZones.ZoneList.Count.ToString(CultureInfo.InvariantCulture);
+        _nameField.Text = string.Empty;
         _shortNameField.Text = string.Empty;
         _minHeightSlider.IsVisible = true;
         _minHeightField.IsVisible = true;
@@ -585,6 +700,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         _maxHeightField.IsVisible = true;
         _maxHeightInfinityToggle.IsVisible = true;
         _polygonEditButton.IsVisible = false;
+        UpdateBottomLeftStack();
     }
 
     public void Open()
@@ -602,7 +718,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         }
 
         IsActive = true;
-        _zoneList.NotifyDataChanged();
+        _zoneList.ForceRebuildElements();
         UpdateFieldsFromSelection();
 
         UserControl.ActiveTool = new ZoneEditorTool();

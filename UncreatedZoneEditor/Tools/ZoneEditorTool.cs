@@ -22,9 +22,13 @@ public class ZoneEditorTool : DevkitServerSelectionTool
     private bool _isSnappingToLine;
     private bool _isSnappingToGrid;
     private ERenderMode _oldRenderMode;
+    private bool _oldFog;
+    private bool _isVertexEditing;
     private float _oldFarClip;
+    private float _oldNearClip;
     private Vector3 _oldPosition;
     private Quaternion _oldRotation;
+    private static readonly float[] LayerClipDistances = new float[32];
 
     private const float GridSquareSize = 1f;
     private const int GridSize = 16;
@@ -89,6 +93,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
         if (editorUIExtension != null)
             editorUIExtension.IsEnabled = true;
+        GraphicsSettings.graphicsSettingsApplied += OnGraphicsSettingsApplied;
     }
 
     protected override void Dequip()
@@ -97,6 +102,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
         if (editorUIExtension != null)
             editorUIExtension.IsEnabled = false;
+        GraphicsSettings.graphicsSettingsApplied -= OnGraphicsSettingsApplied;
     }
 
     protected override void EarlyInputTick()
@@ -171,8 +177,9 @@ public class ZoneEditorTool : DevkitServerSelectionTool
 
         _oldRenderMode = GraphicsSettings.renderMode;
         _oldFarClip = MainCamera.instance.farClipPlane;
-
-        EditorArea.instance.onRegionUpdated += OnRegionUpdated;
+        _oldNearClip = MainCamera.instance.nearClipPlane;
+        _oldFog = RenderSettings.fog;
+        RenderSettings.fog = false;
 
         EditorMessage.SendEditorMessage(UncreatedZoneEditor.Instance.Translations.Translate("ZoneToolHint"));
 
@@ -181,6 +188,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         _oldRotation = cameraTransform.rotation;
 
         MainCamera.instance.farClipPlane = Landscape.TILE_HEIGHT;
+        MainCamera.instance.nearClipPlane = 1f;
         if (_oldRenderMode != ERenderMode.FORWARD)
         {
             GraphicsSettings.renderMode = ERenderMode.FORWARD;
@@ -202,32 +210,44 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         }
 
         QualitySettings.lodBias = float.MaxValue;
+        MainCamera.instance.layerCullDistances = LayerClipDistances;
         CancelDrag();
         CanMiddleClickPick = false;
         CanRotate = false;
         CanAreaSelect = false;
         CanMoveOnInstantiate = false;
         ZoneEditorUI.Instance?.UpdateFieldsFromSelection();
+        _isVertexEditing = true;
     }
 
-    private void OnRegionUpdated(byte oldX, byte oldY, byte newX, byte newY)
+    private void OnGraphicsSettingsApplied()
     {
-        UncreatedZoneEditor.Instance.LogInfo(nameof(ZoneEditorTool), $"Region updated: ({oldX.Format()}, {oldY.Format()}) -> ({newX.Format()}, {newY.Format()}).");
+        if (!_isVertexEditing)
+            return;
+        
+        _oldFarClip = MainCamera.instance.farClipPlane;
+
+        MainCamera.instance.farClipPlane = Landscape.TILE_HEIGHT;
+
+        QualitySettings.lodBias = float.MaxValue;
+        MainCamera.instance.layerCullDistances = LayerClipDistances;
     }
 
     private void ExitPolygonEditMode(ZoneModel old)
     {
+        _isVertexEditing = false;
         CanMiddleClickPick = true;
         CanRotate = true;
         CanAreaSelect = true;
         CanMoveOnInstantiate = true;
         _isPanning = false;
         CancelDrag();
-        EditorArea.instance.onRegionUpdated -= OnRegionUpdated;
 
         UserMovement.SetEditorTransform(_oldPosition, _oldRotation);
-
+        
+        RenderSettings.fog = _oldFog;
         MainCamera.instance.farClipPlane = _oldFarClip;
+        MainCamera.instance.nearClipPlane = _oldNearClip;
         MainCamera.instance.orthographicSize = 20f;
         MainCamera.instance.orthographic = false;
 
@@ -236,7 +256,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             GraphicsSettings.renderMode = ERenderMode.DEFERRED;
         }
 
-        // applying will also reset LOD bias.
+        // applying will also reset LOD bias and cull layers.
         GraphicsSettings.apply("Exiting polygon edit mode.");
 
         ZoneEditorUI.Instance?.UpdateFieldsFromSelection();
@@ -286,13 +306,13 @@ public class ZoneEditorTool : DevkitServerSelectionTool
 
     private void TickPolygonEdit()
     {
-        const float zoomSpeed = -12f;
+        const float zoomSpeed = -6f;
         float scrollDelta = Input.GetAxis("mouse_z") * zoomSpeed;
         if (Math.Abs(scrollDelta) >= 0.001f)
         {
             float newOrthoSize = MainCamera.instance.orthographicSize + scrollDelta;
             float desiredOrthoSize = CalcPolygonOrthoSize();
-            newOrthoSize = Math.Clamp(newOrthoSize, desiredOrthoSize / 8f, desiredOrthoSize * 4f);
+            newOrthoSize = Math.Clamp(newOrthoSize, desiredOrthoSize / 10f, desiredOrthoSize * 10f);
             MainCamera.instance.orthographicSize = newOrthoSize;
         }
 
@@ -318,12 +338,41 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             }
             else if (Input.GetKey(KeyCode.Mouse2))
             {
-                Vector2 difference = mousePos - _panStart;
-                UserMovement.SetEditorTransform(_panStartLocation - new Vector3(difference.x, 0f, difference.y) / 2f, Quaternion.LookRotation(Vector3.down));
+                Vector2 difference = (mousePos - _panStart) * (MainCamera.instance.orthographicSize / Screen.height * 4);
+                UserMovement.SetEditorTransform(_panStartLocation - new Vector3(difference.x, 0f, difference.y) / 2f,
+                    Quaternion.LookRotation(Vector3.down));
             }
             else
             {
                 _isPanning = false;
+            }
+        }
+        else
+        {
+            // near clip adjustment
+            const float clipZoomSpeed = 25f;
+            if (Input.GetKey(KeyCode.UpArrow))
+            {
+                float nearClipPlane = MathF.Max(MainCamera.instance.nearClipPlane - Time.deltaTime * clipZoomSpeed, 1f);
+                MainCamera.instance.nearClipPlane = nearClipPlane;
+                EditorUI.hint(default, UncreatedZoneEditor.Instance.Translations.Translate("NearClipHint", nearClipPlane));
+            }
+            else if (Input.GetKey(KeyCode.DownArrow))
+            {
+                float nearClipPlane;
+                if (InputUtil.IsHoldingControl() && Physics.Raycast(new Ray(MainCamera.instance.transform.position, Vector3.down), out RaycastHit hit, Landscape.TILE_HEIGHT,
+                        RayMasks.LARGE | RayMasks.MEDIUM | RayMasks.SMALL | RayMasks.BARRICADE
+                        | RayMasks.STRUCTURE | RayMasks.GROUND | RayMasks.GROUND2 | RayMasks.ENVIRONMENT, QueryTriggerInteraction.Ignore))
+                {
+                    nearClipPlane = Mathf.Clamp(MainCamera.instance.transform.position.y - hit.point.y, 1f, Landscape.TILE_HEIGHT - 1f);
+                }
+                else
+                {
+                    nearClipPlane = MathF.Min(MainCamera.instance.nearClipPlane + Time.deltaTime * clipZoomSpeed, Landscape.TILE_HEIGHT - 1f);
+                }
+
+                MainCamera.instance.nearClipPlane = nearClipPlane;
+                EditorUI.hint(default, UncreatedZoneEditor.Instance.Translations.Translate("NearClipHint", nearClipPlane));
             }
         }
 
@@ -386,7 +435,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             {
                 int index = _vertexDragIndex;
                 CancelDrag();
-                if (!poly.DeletePoint(index, out _))
+                if (!poly.TryAbandonTempPoint() && !poly.DeletePoint(index, out _))
                 {
                     EditorMessage.SendEditorMessage(UncreatedZoneEditor.Instance.Translations.Translate("PolygonIntersectsItself"));
                 }
@@ -748,15 +797,18 @@ public class ZoneEditorTool : DevkitServerSelectionTool
     {
         ZoneModel model = _polygonEditTarget!;
 
-        Vector3 center = model.Center with { y = 0f }, spawn = model.Spawn with { y = 0f };
+        Vector3 center = model.Center with { y = 0f };
 
         RuntimeGizmos gizmos = RuntimeGizmos.Get();
 
-        gizmos.Circle(center, Vector3.right, Vector3.forward, 2f, Color.green, layer: EGizmoLayer.Foreground);
-
-        if (!model.Spawn.IsNearlyEqual(model.Center))
+        if (model.IsPrimary)
         {
-            gizmos.Circle(spawn, Vector3.right, Vector3.forward, 2f, Color.yellow, layer: EGizmoLayer.Foreground);
+            gizmos.Circle(center, Vector3.right, Vector3.forward, 2f, Color.green, layer: EGizmoLayer.Foreground);
+            if (!model.Spawn.IsNearlyEqual(model.Center))
+            {
+                Vector3 spawn = model.Spawn with { y = 0f };
+                gizmos.Circle(spawn, Vector3.right, Vector3.forward, 2f, Color.yellow, layer: EGizmoLayer.Foreground);
+            }
         }
 
         ZonePolygonInfo? polygon = model.PolygonInfo;

@@ -36,6 +36,9 @@ public class ZoneModel : ICloneable
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
 
+    [JsonPropertyName("is_primary")]
+    public bool IsPrimary { get; set; } = true;
+
     [JsonPropertyName("short_name")]
     public string? ShortName { get; set; }
 

@@ -45,21 +45,22 @@ public class RectangleZoneComponent : BaseZoneComponent
 
         Vector3 size = RoundSize();
 
+        Color color = Model.IsPrimary ? GizmoPrimaryColor : GizmoNonPrimaryColor;
         if (!transform.rotation.IsNearlyIdentity())
         {
             gizmos.Box(transform.localToWorldMatrix, Vector3.one, Color.gray);
-            gizmos.Box(center, size, Color.white);
+            gizmos.Box(center, size, color);
         }
         else
         {
-            gizmos.Box(transform.localToWorldMatrix, Vector3.one, Color.white);
+            gizmos.Box(transform.localToWorldMatrix, Vector3.one, color);
         }
 
         if (!IsSelected)
             return;
 
         Bounds bounds = new Bounds(center, size);
-        gizmos.AABBProjectedOnTerrain(in bounds, Color.white);
+        gizmos.AABBProjectedOnTerrain(in bounds, color);
     }
 
     private Vector3 RoundSize()

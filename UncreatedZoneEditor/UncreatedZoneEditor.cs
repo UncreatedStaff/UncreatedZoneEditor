@@ -50,6 +50,9 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "ShortNameField", "Short Name" },
         { "ShortNameTooltip", "Shorter version of Name." },
 
+        { "SetAsPrimaryButton", "Set as Primary" },
+        { "SetAsPrimaryTooltip", "Marks this part of a zone cluster as the primary zone." },
+
         { "MinHeightField", "Minimum Height" },
         { "MinHeightTooltip", "The minimum Y value of the zone's effect." },
         { "MinHeightInfinityTooltip", "Adds no limit to the minimum height." },
@@ -66,7 +69,8 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "EditPolygonNotSelected", "Must have exactly 1 polygon selected." },
 
         { "PolygonIntersectsItself", "Modifying the polygon will\ncause it to intersect itself." },
-        { "ZoneToolHint", "[SHIFT] Snap to lines | [CTRL] Snap to grid\n[E] Add | Hold [L-Click] to select. " }
+        { "ZoneToolHint", "[SHIFT] Snap to lines | [CTRL] Snap to grid\n[E] Add | Hold [L-Click] to select." },
+        { "NearClipHint", "View clip height: {0}." }
     };
 
 #if DEBUG
