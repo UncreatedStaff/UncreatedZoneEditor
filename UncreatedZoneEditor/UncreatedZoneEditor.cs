@@ -70,7 +70,9 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
 
         { "PolygonIntersectsItself", "Modifying the polygon will\ncause it to intersect itself." },
         { "ZoneToolHint", "[SHIFT] Snap to lines | [CTRL] Snap to grid\n[E] Add | Hold [L-Click] to select." },
-        { "NearClipHint", "View clip height: {0}." }
+        { "NearClipHint", "View clip height: {0}." },
+        { "NotOneSelectionHint", "There must be exactly one zone selected to add grid objects." },
+        { "NonPowerGridObjectHint", "Only powered objects can be selected." }
     };
 
 #if DEBUG

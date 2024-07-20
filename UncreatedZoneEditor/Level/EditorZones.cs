@@ -153,7 +153,6 @@ public static class EditorZones
         return DevkitSelectionManager.selection.FirstOrDefault(x => x.collider == model.Component.Collider);
 
     }
-
     internal static void Unload()
     {
         foreach (BaseZoneComponent comp in ComponentsPendingUndo)
@@ -173,6 +172,51 @@ public static class EditorZones
     }
 
 #endif
+
+    internal static void FixInvalidGridObjects()
+    {
+        foreach (ZoneModel model in LevelZones.LoadedZones)
+        {
+            for (int i = model.GridObjects.Count - 1; i >= 0; --i)
+            {
+                uint instId = model.GridObjects[i];
+                if (!LevelObjectUtil.TryFindObject(model.Center, instId, out LevelObject obj))
+                {
+                    UncreatedZoneEditor.Instance.LogInfo($"Removed missing grid object {instId.Format()
+                        } from zone {model.Name.Format(false)}."
+                    );
+
+                    model.GridObjects.RemoveAt(i);
+                }
+
+                if (obj.asset is not { interactabilityPower: EObjectInteractabilityPower.NONE })
+                    continue;
+
+                UncreatedZoneEditor.Instance.LogWarning($"Grid object {instId.Format()} ({obj.asset.Format()
+                    }) from zone {model.Name.Format(false)} is not powered."
+                );
+            }
+        }
+
+        foreach (ZoneModel model in LevelZones.LoadedZones)
+        {
+            if (model.IsPrimary || model.GridObjects.Count == 0)
+                return;
+
+            ZoneModel primary = LevelZones.GetPrimary(model);
+            if (ReferenceEquals(model, primary))
+                continue;
+
+            foreach (uint instId in model.GridObjects)
+            {
+                if (!primary.GridObjects.Contains(instId))
+                    primary.GridObjects.Add(instId);
+            }
+
+            model.GridObjects.Clear();
+            model.GridObjects.Capacity = 0;
+        }
+    }
 
     /// <summary>
     /// Add a zone without replicating.
@@ -304,7 +348,7 @@ public static class EditorZones
         ThreadUtil.assertIsGameThread();
         AssertEditor();
 
-        int index = GetIndexQuick(model);
+        int index = LevelZones.GetIndexQuick(model);
         if (index < 0)
             return false;
 
@@ -574,7 +618,7 @@ public static class EditorZones
         ThreadUtil.assertIsGameThread();
         AssertEditor();
 
-        int index = GetIndexQuick(model);
+        int index = LevelZones.GetIndexQuick(model);
         if (index < 0)
             return false;
 
@@ -635,15 +679,6 @@ public static class EditorZones
         EventOnZoneShapeUpdated.TryInvoke(model, oldShape);
     }
 
-    internal static int GetIndexQuick(ZoneModel model)
-    {
-        int index = model.Index >= 0 && model.Index < LevelZones.ZoneList.Count && LevelZones.ZoneList[model.Index] == model
-            ? model.Index
-            : LevelZones.ZoneList.IndexOf(model);
-
-        return index;
-    }
-
     private static void AssertEditor()
     {
         if (!Level.isEditor)
@@ -676,7 +711,6 @@ public static class EditorZones
         model.Component = component;
     }
 #endif
-
 }
 
 public delegate void ZoneAdded(ZoneModel model);

@@ -29,6 +29,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
     private Vector3 _oldPosition;
     private Quaternion _oldRotation;
     private static readonly float[] LayerClipDistances = new float[32];
+    private readonly List<RegionIdentifier> _gridObjects = new List<RegionIdentifier>(32);
 
     private const float GridSquareSize = 1f;
     private const int GridSize = 16;
@@ -78,13 +79,69 @@ public class ZoneEditorTool : DevkitServerSelectionTool
     public ZoneEditorTool()
     {
         CanRotate = true;
+        HighlightHover = false;
     }
 
+    internal void OnGridObjectRemoved(LevelObject obj, RegionIdentifier id)
+    {
+        Transform? t = obj.GetTransform();
+        if (_gridObjects.Remove(id) && t != null)
+        {
+            HighlighterUtil.Unhighlight(t);
+        }
+    }
+
+    private static readonly Color GridObjectColor = new Color32(255, 187, 51, 255);
     protected override void OnMiddleClickPicked(ref RaycastHit hit)
     {
-        if (!EditorZones.EnumerateSelectedZones().Any() && hit.transform.TryGetComponent(out BaseZoneComponent comp) && ZoneEditorUI.Instance != null)
+        ZoneModel? selectedZone = LevelZones.GetPrimary(EditorZones.EnumerateSelectedZones().SingleOrDefaultSafe());
+        if (selectedZone == null)
         {
-            ZoneEditorUI.Instance.SelectedShape = comp.Model.Shape;
+            ClearGridObjects();
+            EditorMessage.SendEditorMessage(UncreatedZoneEditor.Instance.Translations.Translate("NotOneSelectionHint"));
+            return;
+        }
+
+        RegionIdentifier id = LevelObjectUtil.FindObjectCoordinates(hit.transform);
+        LevelObject? obj = LevelObjectUtil.GetObject(id);
+        Transform? transform = obj?.GetTransform();
+        if (transform == null || obj!.asset.interactabilityPower == EObjectInteractabilityPower.NONE)
+        {
+            EditorMessage.SendEditorMessage(UncreatedZoneEditor.Instance.Translations.Translate("NonPowerGridObjectHint"));
+            return;
+        }
+
+        int index = _gridObjects.IndexOf(id);
+        if (index < 0)
+        {
+            HighlighterUtil.Highlight(transform, GridObjectColor);
+            _gridObjects.Add(id);
+
+            if (selectedZone.GridObjects.Contains(obj.instanceID))
+                return;
+
+            UncreatedZoneEditor.Instance.LogDebug($"Added grid object {obj.instanceID.Format()} ({obj.asset.Format()
+                }) to zone {selectedZone.Name.Format(false)}."
+            );
+            selectedZone.GridObjects.Add(obj.instanceID);
+            UncreatedZoneEditor.Instance.isDirty = true;
+        }
+        else if (selectedZone.GridObjects.Contains(obj.instanceID))
+        {
+            HighlighterUtil.Unhighlight(transform);
+            _gridObjects.RemoveAt(index);
+            UncreatedZoneEditor.Instance.LogDebug($"Removed grid object {obj.instanceID.Format()} ({obj.asset.Format()
+                }) from zone {selectedZone.Name.Format(false)}."
+            );
+            selectedZone.GridObjects.Remove(obj.instanceID);
+        }
+        else
+        {
+            UncreatedZoneEditor.Instance.LogDebug($"Added grid object {obj.instanceID.Format()} ({obj.asset.Format()
+                }) to zone {selectedZone.Name.Format(false)} (was already in _gridObjects list)."
+            );
+            selectedZone.GridObjects.Add(obj.instanceID);
+            UncreatedZoneEditor.Instance.isDirty = true;
         }
     }
 
@@ -94,6 +151,9 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         if (editorUIExtension != null)
             editorUIExtension.IsEnabled = true;
         GraphicsSettings.graphicsSettingsApplied += OnGraphicsSettingsApplied;
+
+        EditorZones.OnZoneSelectionUpdated += OnSelectionUpdated;
+        OnSelectionUpdated(default, default);
     }
 
     protected override void Dequip()
@@ -103,6 +163,79 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         if (editorUIExtension != null)
             editorUIExtension.IsEnabled = false;
         GraphicsSettings.graphicsSettingsApplied -= OnGraphicsSettingsApplied;
+
+        EditorZones.OnZoneSelectionUpdated -= OnSelectionUpdated;
+
+        ClearGridObjects();
+    }
+
+    private void ClearGridObjects()
+    {
+        for (int i = 0; i < _gridObjects.Count; ++i)
+        {
+            LevelObject? obj = LevelObjectUtil.GetObject(_gridObjects[i]);
+            Transform? transform = obj?.GetTransform();
+            if (transform != null)
+            {
+                HighlighterUtil.Unhighlight(transform);
+            }
+        }
+
+        _gridObjects.Clear();
+    }
+
+    private void OnSelectionUpdated(ZoneModel? selectedOrDeselected, bool wasSelected)
+    {
+        if (_polygonEditTarget != null)
+            return;
+
+        ZoneModel? selectedZone = LevelZones.GetPrimary(EditorZones.EnumerateSelectedZones().SingleOrDefaultSafe());
+
+        if (selectedZone == null)
+        {
+            ClearGridObjects();
+            return;
+        }
+
+        for (int i = 0; i < _gridObjects.Count; ++i)
+        {
+            RegionIdentifier id = _gridObjects[i];
+            LevelObject? obj = LevelObjectUtil.GetObject(id);
+            if (obj == null || selectedZone.GridObjects.Contains(obj.instanceID))
+                continue;
+
+            Transform? transform = obj.GetTransform();
+            if (transform != null)
+            {
+                HighlighterUtil.Unhighlight(transform);
+            }
+        }
+
+        for (int i = selectedZone.GridObjects.Count - 1; i >= 0; i--)
+        {
+            uint instanceId = selectedZone.GridObjects[i];
+            if (!LevelObjectUtil.TryFindObject(selectedZone.Center, instanceId, out RegionIdentifier foundObject))
+            {
+                int index = _gridObjects.IndexOf(foundObject);
+                if (index >= 0)
+                {
+                    _gridObjects.RemoveAt(index);
+                }
+
+                selectedZone.GridObjects.RemoveAt(i);
+                continue;
+            }
+
+            if (_gridObjects.Contains(foundObject))
+                continue;
+
+            LevelObject obj = LevelObjectUtil.GetObjectUnsafe(foundObject);
+            _gridObjects.Add(foundObject);
+
+            Transform? transform = obj.GetTransform();
+            if (transform != null)
+                HighlighterUtil.Highlight(transform, GridObjectColor);
+        }
     }
 
     protected override void EarlyInputTick()
@@ -115,16 +248,15 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         if (_polygonEditTarget != null)
         {
             TickPolygonEdit();
+            return;
         }
-        else
+
+        RuntimeGizmos gizmos = RuntimeGizmos.Get();
+        foreach (ZoneModel zone in LevelZones.ZoneList)
         {
-            RuntimeGizmos gizmos = RuntimeGizmos.Get();
-            foreach (ZoneModel zone in LevelZones.ZoneList)
+            if (zone.Component != null)
             {
-                if (zone.Component != null)
-                {
-                    zone.Component.RenderGizmos(gizmos);
-                }
+                zone.Component.RenderGizmos(gizmos);
             }
         }
     }
@@ -133,7 +265,15 @@ public class ZoneEditorTool : DevkitServerSelectionTool
     {
         if (_polygonEditTarget == null)
         {
-            return Physics.Raycast(ray, out hit, 8192f, 8, QueryTriggerInteraction.Collide);
+            return Physics.Raycast(
+                ray,
+                out hit,
+                8192f,
+                InputEx.GetKeyDown(KeyCode.Mouse2)
+                    ? RayMasks.LARGE | RayMasks.MEDIUM | RayMasks.SMALL
+                    : 8,
+                QueryTriggerInteraction.Collide
+            );
         }
 
         hit = default;
@@ -218,19 +358,8 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         CanMoveOnInstantiate = false;
         ZoneEditorUI.Instance?.UpdateFieldsFromSelection();
         _isVertexEditing = true;
-    }
 
-    private void OnGraphicsSettingsApplied()
-    {
-        if (!_isVertexEditing)
-            return;
-        
-        _oldFarClip = MainCamera.instance.farClipPlane;
-
-        MainCamera.instance.farClipPlane = Landscape.TILE_HEIGHT;
-
-        QualitySettings.lodBias = float.MaxValue;
-        MainCamera.instance.layerCullDistances = LayerClipDistances;
+        ClearGridObjects();
     }
 
     private void ExitPolygonEditMode(ZoneModel old)
@@ -242,6 +371,8 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         CanMoveOnInstantiate = true;
         _isPanning = false;
         CancelDrag();
+
+        OnSelectionUpdated(default, default);
 
         UserMovement.SetEditorTransform(_oldPosition, _oldRotation);
         
@@ -266,6 +397,19 @@ public class ZoneEditorTool : DevkitServerSelectionTool
 
         DevkitSelectionManager.clear();
         DevkitSelectionManager.add(new DevkitSelection(old.Component.gameObject, old.Component.Collider));
+    }
+
+    private void OnGraphicsSettingsApplied()
+    {
+        if (!_isVertexEditing)
+            return;
+
+        _oldFarClip = MainCamera.instance.farClipPlane;
+
+        MainCamera.instance.farClipPlane = Landscape.TILE_HEIGHT;
+
+        QualitySettings.lodBias = float.MaxValue;
+        MainCamera.instance.layerCullDistances = LayerClipDistances;
     }
 
     private void TeleportToPolygon()
@@ -355,7 +499,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             {
                 float nearClipPlane = MathF.Max(MainCamera.instance.nearClipPlane - Time.deltaTime * clipZoomSpeed, 1f);
                 MainCamera.instance.nearClipPlane = nearClipPlane;
-                EditorUI.hint(default, UncreatedZoneEditor.Instance.Translations.Translate("NearClipHint", nearClipPlane));
+                EditorUI.hint(EEditorMessage.OBJECTS, UncreatedZoneEditor.Instance.Translations.Translate("NearClipHint", nearClipPlane));
             }
             else if (Input.GetKey(KeyCode.DownArrow))
             {
@@ -372,7 +516,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
                 }
 
                 MainCamera.instance.nearClipPlane = nearClipPlane;
-                EditorUI.hint(default, UncreatedZoneEditor.Instance.Translations.Translate("NearClipHint", nearClipPlane));
+                EditorUI.hint(EEditorMessage.OBJECTS, UncreatedZoneEditor.Instance.Translations.Translate("NearClipHint", nearClipPlane));
             }
         }
 
@@ -434,7 +578,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
                 && _polygonEditTarget is { PolygonInfo.Points.Length: > 3 })
             {
                 int index = _vertexDragIndex;
-                CancelDrag();
+                CancelDrag(abandonTempPoint: false);
                 if (!poly.TryAbandonTempPoint() && !poly.DeletePoint(index, out _))
                 {
                     EditorMessage.SendEditorMessage(UncreatedZoneEditor.Instance.Translations.Translate("PolygonIntersectsItself"));
@@ -659,7 +803,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         return intersects % 2 == 1;
     }
 
-    internal bool CancelDrag()
+    internal bool CancelDrag(bool abandonTempPoint = true)
     {
         if (_vertexDragIndex < 0)
             return false;
@@ -667,7 +811,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
         _vertexDragIndex = -1;
         _isSnappingToLine = false;
         _isSnappingToGrid = false;
-        if (_polygonEditTarget is { PolygonInfo: not null, Component: PolygonZoneComponent poly })
+        if (abandonTempPoint && _polygonEditTarget is { PolygonInfo: not null, Component: PolygonZoneComponent poly })
         {
             poly.TryAbandonTempPoint();
         }

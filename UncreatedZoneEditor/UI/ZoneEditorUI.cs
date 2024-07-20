@@ -438,7 +438,7 @@ public class ZoneEditorUI : SleekFullscreenBox
     {
         foreach (ZoneModel model in EditorZones.EnumerateSelectedZones())
         {
-            int index = EditorZones.GetIndexQuick(model);
+            int index = LevelZones.GetIndexQuick(model);
             if (index >= 0)
                 EditorZones.MarkZoneAsPrimary(index);
         }

@@ -27,6 +27,8 @@ internal class ZoneJsonList : SchemaConfiguration
 
 public class ZoneModel : ICloneable
 {
+    private List<uint> _gridObjects = [ ];
+
     [JsonIgnore]
     public int Index { get; internal set; }
     
@@ -66,6 +68,13 @@ public class ZoneModel : ICloneable
 
     [JsonPropertyName("polygon")]
     public ZonePolygonInfo? PolygonInfo { get; set; }
+
+    [JsonPropertyName("grid_objects")]
+    public List<uint> GridObjects
+    {
+        get => _gridObjects;
+        set => _gridObjects = value ?? [ ];
+    }
 
 #if CLIENT
     [JsonIgnore]

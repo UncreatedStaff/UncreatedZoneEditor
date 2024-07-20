@@ -132,7 +132,7 @@ public abstract class BaseZoneComponent : MonoBehaviour,
         if (IsRemoved || Model == null || Level.isExiting || Provider.isApplicationQuitting)
             return;
 
-        EditorZones.TemporarilyRemoveZoneLocal(Model, EditorZones.GetIndexQuick(Model));
+        EditorZones.TemporarilyRemoveZoneLocal(Model, LevelZones.GetIndexQuick(Model));
         UncreatedZoneEditor.Instance.LogDebug($"Removed {Model.Name.Format()} from enabled object (@ {Model.Index.Format()}).");
     }
 

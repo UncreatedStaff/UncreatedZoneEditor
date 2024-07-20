@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Uncreated.ZoneEditor.Data;
 
@@ -32,20 +33,63 @@ public static class LevelZones
         Level.onLevelLoaded += OnLevelLoaded;
     }
 
+    [return: NotNullIfNotNull(nameof(model))]
+    [System.Diagnostics.Contracts.Pure]
+    public static ZoneModel? GetPrimary(ZoneModel? model)
+    {
+        if (model == null)
+            return null;
+
+        if (model.IsPrimary)
+            return model;
+
+        int index = GetIndexQuick(model);
+        if (index < 0)
+            return model;
+
+        string name = model.Name;
+        for (int i = index - 1; i >= 0; --i)
+        {
+            ZoneModel zone = ZoneList[i];
+            if (zone.IsPrimary && zone.Name.Equals(name, StringComparison.Ordinal))
+                return zone;
+        }
+
+        for (int i = index + 1; i < ZoneList.Count; ++i)
+        {
+            ZoneModel zone = ZoneList[i];
+            if (zone.IsPrimary && zone.Name.Equals(name, StringComparison.Ordinal))
+                return zone;
+        }
+
+        return model;
+    }
+
+    internal static int GetIndexQuick(ZoneModel model)
+    {
+        int index = model.Index >= 0 && model.Index < LevelZones.ZoneList.Count && LevelZones.ZoneList[model.Index] == model
+            ? model.Index
+            : LevelZones.ZoneList.IndexOf(model);
+
+        return index;
+    }
+
     internal static void Unload()
     {
         Level.onLevelLoaded -= OnLevelLoaded;
 #if CLIENT
         EditorZones.Unload();
 #endif
-}
+    }
 
     private static void OnLevelLoaded(int level)
     {
-        if (level == Level.BUILD_INDEX_GAME)
-        {
-            ReadZones();
-        }
+        if (level != Level.BUILD_INDEX_GAME)
+            return;
+
+        ReadZones();
+        if (Level.isEditor)
+            EditorZones.FixInvalidGridObjects();
     }
 
     public static void SaveZones()
