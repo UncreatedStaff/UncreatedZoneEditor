@@ -18,8 +18,8 @@ public abstract class BaseZoneComponent : MonoBehaviour,
     internal int AddBackAtIndex = -1;
     internal bool IsRemoved;
     internal bool IsRemovedForShapeChange;
-    protected static readonly Color GizmoNonPrimaryColor = new Color32(140, 140, 140, 255);
-    protected static readonly Color GizmoPrimaryColor = Color.white;
+    protected internal static readonly Color GizmoNonPrimaryColor = new Color32(140, 140, 140, 255);
+    protected internal static readonly Color GizmoPrimaryColor = Color.white;
 #nullable disable   
     public Collider Collider { get; protected set; }
     public ZoneModel Model { get; private set; }

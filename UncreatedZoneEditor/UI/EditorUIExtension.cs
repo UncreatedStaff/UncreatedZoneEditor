@@ -14,7 +14,23 @@ internal class EditorUIExtension : ContainerUIExtension
     private bool _lastFadeSetting;
     private bool _lastWasPolyEditing;
     private bool _isEnabled;
+    private bool _useOrthoOffset;
     private TransformUpdateTracker? _tracker;
+
+    public bool UseOrthoOffset
+    {
+        get => _useOrthoOffset;
+        set
+        {
+            ThreadUtil.assertIsGameThread();
+
+            _useOrthoOffset = value;
+            foreach (ISleekLabel label in _tags.Values)
+            {
+                UpdateOrthoSettings(label);
+            }
+        }
+    }
     internal bool IsEnabled
     {
         get => _isEnabled;
@@ -25,6 +41,7 @@ internal class EditorUIExtension : ContainerUIExtension
 
             if (value)
             {
+                UseOrthoOffset = MainCamera.instance.orthographic;
                 if (!_subbed)
                 {
                     _subbed = true;
@@ -181,16 +198,32 @@ internal class EditorUIExtension : ContainerUIExtension
 
         // PlayerGroupUI.addGroup
         ISleekLabel label = Glazier.Get().CreateLabel();
-        label.PositionOffset_X = -100;
-        label.PositionOffset_Y = -15;
-        label.SizeOffset_X = 200;
-        label.SizeOffset_Y = 30;
+        UpdateOrthoSettings(label);
         label.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
         label.Text = node.locationName;
         label.IsVisible = !_lastWasPolyEditing;
         UpdateTag(label, node);
         Container.AddChild(label);
         _tags.Add(node, label);
+    }
+
+    private void UpdateOrthoSettings(ISleekLabel label)
+    {
+        if (!UseOrthoOffset)
+        {
+            label.PositionOffset_X = -100;
+            label.PositionOffset_Y = -15;
+            label.SizeOffset_X = 200;
+            label.SizeOffset_Y = 30;
+        }
+        else
+        {
+            label.PositionOffset_X = -200;
+            label.PositionOffset_Y = -30;
+            label.SizeOffset_X = 400;
+            label.SizeOffset_Y = 60;
+            label.TextColor = ESleekTint.FONT;
+        }
     }
 
     private void UpdateTag(ISleekLabel nametag, LocationDevkitNode node)

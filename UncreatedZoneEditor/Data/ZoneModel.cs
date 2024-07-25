@@ -22,12 +22,13 @@ internal class ZoneJsonList : SchemaConfiguration
     protected override string GetSchemaURI() => "https://raw.githubusercontent.com/UncreatedStaff/UncreatedZoneEditor/master/Schemas/zone_list_schema.json";
     
     [JsonPropertyName("zones")]
-    public List<ZoneModel> Zones { get; set; }
+    public List<ZoneModel>? Zones { get; set; }
 }
 
 public class ZoneModel : ICloneable
 {
     private List<uint> _gridObjects = [ ];
+    private List<UpstreamZone> _upstreamZones = [ ];
 
     [JsonIgnore]
     public int Index { get; internal set; }
@@ -75,6 +76,17 @@ public class ZoneModel : ICloneable
         get => _gridObjects;
         set => _gridObjects = value ?? [ ];
     }
+
+    [JsonPropertyName("upstream_zones")]
+    public List<UpstreamZone> UpstreamZones
+    {
+        get => _upstreamZones;
+        set => _upstreamZones = value ?? [ ];
+    }
+
+    [JsonPropertyName("use_case")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ZoneType Type { get; set; }
 
 #if CLIENT
     [JsonIgnore]
@@ -139,4 +151,13 @@ public class ZonePolygonInfo : ICloneable
             newPoints[i] = oldPoints[i];
         return new ZonePolygonInfo { Points = newPoints, MaximumHeight = MaximumHeight, MinimumHeight = MinimumHeight };
     }
+}
+
+public class UpstreamZone
+{
+    [JsonPropertyName("name")]
+    public string ZoneName { get; set; }
+
+    [JsonPropertyName("weight")]
+    public float Weight { get; set; }
 }

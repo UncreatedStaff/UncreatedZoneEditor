@@ -88,8 +88,6 @@ public static class LevelZones
             return;
 
         ReadZones();
-        if (Level.isEditor)
-            EditorZones.FixInvalidGridObjects();
     }
 
     public static void SaveZones()
@@ -132,10 +130,11 @@ public static class LevelZones
 
         if (_zoneList == null || !_zoneList.File.Equals(path))
         {
-            _zoneList = new ZoneJsonConfig(path) { ReadOnlyReloading = false };
+            _zoneList = new ZoneJsonConfig(path) { ReadOnlyReloading = !Level.isEditor };
         }
 
         _zoneList.ReloadConfig();
+        _zoneList.Configuration.Zones ??= [ ];
 
 #if CLIENT
         foreach (ZoneModel model in ZoneList)
@@ -164,12 +163,57 @@ public static class LevelZones
             ZoneList.Add(model);
         }
 
-        // fixup name clusters
+        bool anyChanges = false;
+
         for (int i = 0; i < ZoneList.Count; ++i)
         {
             ZoneModel zone = ZoneList[i];
+
+            // fixup upstream zones
+            for (int j = zone.UpstreamZones.Count - 1; j >= 0; --j)
+            {
+                UpstreamZone upstreamZone = zone.UpstreamZones[j];
+                string zoneName = upstreamZone.ZoneName;
+                if (string.IsNullOrWhiteSpace(zoneName) || zoneName.Equals(zone.Name, StringComparison.Ordinal))
+                {
+                    UncreatedZoneEditor.Instance.LogWarning($"Removed empty or self upstream zone from zone {zone.Name.Format(false)}.");
+                    zone.UpstreamZones.RemoveAt(j);
+                    anyChanges = true;
+                    continue;
+                }
+
+                bool foundAny = false;
+                for (int k = 0; k < ZoneList.Count; ++k)
+                {
+                    if (k == i || !zoneName.Equals(ZoneList[k].Name, StringComparison.Ordinal))
+                        continue;
+
+                    foundAny = true;
+                    break;
+                }
+
+                if (!foundAny)
+                {
+                    zone.UpstreamZones.RemoveAt(j);
+                    UncreatedZoneEditor.Instance.LogWarning($"Removed unknown upstream zone {zoneName.Format()} from zone {zone.Name.Format(false)}.");
+                    anyChanges = true;
+                }
+
+                if (upstreamZone.Weight > 0f)
+                    continue;
+
+                UncreatedZoneEditor.Instance.LogWarning($"Removed 0 weight upstream zone {zoneName.Format(false)} from zone {zone.Name.Format(false)}.");
+                zone.UpstreamZones.RemoveAt(j);
+                anyChanges = true;
+            }
+
+            // fixup name clusters
             if (string.IsNullOrWhiteSpace(zone.Name))
+            {
                 zone.Name = Guid.NewGuid().ToString("N");
+                UncreatedZoneEditor.Instance.LogWarning($"Added default name to zone with missing name: {zone.Name.Format()}.");
+                anyChanges = true;
+            }
 
             string name = zone.Name;
             bool anyPrimary = zone.IsPrimary;
@@ -181,9 +225,9 @@ public static class LevelZones
                 
                 if (anyPrimary)
                 {
+                    UncreatedZoneEditor.Instance.LogWarning($"Removed duplicate primary zone in cluster {name.Format(false)}.");
                     zone2.IsPrimary = false;
-                    if (Level.isEditor)
-                        UncreatedZoneEditor.Instance.isDirty = true;
+                    anyChanges = true;
                 }
                 else
                 {
@@ -194,9 +238,27 @@ public static class LevelZones
             if (anyPrimary)
                 continue;
 
+            UncreatedZoneEditor.Instance.LogWarning($"Set first zone in cluster {name.Format(false)} as the primary zone.");
             zone.IsPrimary = true;
-            if (Level.isEditor)
-                UncreatedZoneEditor.Instance.isDirty = true;
+            anyChanges = true;
+        }
+
+        if (Level.isEditor)
+        {
+            anyChanges |= EditorZones.FixInvalidGridObjects();
+        }
+
+        if (!anyChanges)
+            return;
+
+        if (!Level.isEditor)
+        {
+            UncreatedZoneEditor.Instance.LogWarning("Open the map in the editor and save to apply the above changes.");
+        }
+        else
+        {
+            UncreatedZoneEditor.Instance.LogInfo("Save the map to apply the above changes.");
+            UncreatedZoneEditor.Instance.isDirty = true;
         }
     }
 }

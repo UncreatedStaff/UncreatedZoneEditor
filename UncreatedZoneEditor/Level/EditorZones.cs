@@ -173,8 +173,9 @@ public static class EditorZones
 
 #endif
 
-    internal static void FixInvalidGridObjects()
+    internal static bool FixInvalidGridObjects()
     {
+        bool anyChanges = false;
         foreach (ZoneModel model in LevelZones.LoadedZones)
         {
             for (int i = model.GridObjects.Count - 1; i >= 0; --i)
@@ -187,6 +188,7 @@ public static class EditorZones
                     );
 
                     model.GridObjects.RemoveAt(i);
+                    anyChanges = true;
                 }
 
                 if (obj.asset is not { interactabilityPower: EObjectInteractabilityPower.NONE })
@@ -195,13 +197,14 @@ public static class EditorZones
                 UncreatedZoneEditor.Instance.LogWarning($"Grid object {instId.Format()} ({obj.asset.Format()
                     }) from zone {model.Name.Format(false)} is not powered."
                 );
+                anyChanges = true;
             }
         }
 
         foreach (ZoneModel model in LevelZones.LoadedZones)
         {
             if (model.IsPrimary || model.GridObjects.Count == 0)
-                return;
+                continue;
 
             ZoneModel primary = LevelZones.GetPrimary(model);
             if (ReferenceEquals(model, primary))
@@ -210,12 +213,18 @@ public static class EditorZones
             foreach (uint instId in model.GridObjects)
             {
                 if (!primary.GridObjects.Contains(instId))
+                {
                     primary.GridObjects.Add(instId);
+                }
             }
 
+            UncreatedZoneEditor.Instance.LogWarning($"Moved {model.GridObjects.Count} grid object(s) from non-primary zone to primary zone in cluster {model.Name.Format(false)}.");
             model.GridObjects.Clear();
             model.GridObjects.Capacity = 0;
+            anyChanges = true;
         }
+
+        return anyChanges;
     }
 
     /// <summary>

@@ -11,7 +11,7 @@ using Uncreated.ZoneEditor.Tools;
 namespace Uncreated.ZoneEditor.UI;
 public class ZoneEditorUI : SleekFullscreenBox
 {
-    private static readonly Action<object>? CloseVolumeUI = Accessor.GenerateInstanceCaller<Action<object>>(
+    internal static readonly Action<object>? CloseVolumeUI = Accessor.GenerateInstanceCaller<Action<object>>(
         UIAccessTools.EditorVolumesUIType?.GetMethod("Close")!,
         throwOnError: false,
         allowUnsafeTypeBinding: true
@@ -89,10 +89,10 @@ public class ZoneEditorUI : SleekFullscreenBox
         _zoneList = new SleekList<ZoneModel>
         {
             PositionOffset_X = -230,
-            PositionOffset_Y = 230,
+            PositionOffset_Y = 75f,
             PositionScale_X = 1f,
             SizeOffset_X = 230f,
-            SizeOffset_Y = -230f,
+            SizeOffset_Y = -105f,
             SizeScale_Y = 1f,
             itemHeight = 30,
             itemPadding = 10,
@@ -712,6 +712,10 @@ public class ZoneEditorUI : SleekFullscreenBox
         EditorLevelObjectsUI.close();
         EditorLevelVisibilityUI.close();
         EditorLevelPlayersUI.close();
+        if (ZoneMapperUI.Instance is { IsActive: true })
+        {
+            ZoneMapperUI.Instance.Close();
+        }
         if (UserControl.ActiveTool is VolumesEditor && UIAccessTools.EditorVolumesUI is { } volUi)
         {
             CloseVolumeUI?.Invoke(volUi);

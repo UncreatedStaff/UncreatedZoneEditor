@@ -35,6 +35,8 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "TooManyZoneAnchors", "There can not be more than {0} anchors in a single zone." },
         { "ZoneToolButton", "Zone Editor" },
         { "ZoneToolButtonTooltip", "Tool used to edit zones for Uncreated Warfare." },
+        { "ZoneMapperButton", "Zone Mapper" },
+        { "ZoneMapperButtonTooltip", "Tool used to view and edit zones on the map and their adjacencies." },
         { "CreateZoneNoName", "Zones must have a non-whitespace name." },
         { "ShapeAABB", "Rectangle" },
         { "ShapeCylinder", "Circle" },
@@ -71,8 +73,12 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "PolygonIntersectsItself", "Modifying the polygon will\ncause it to intersect itself." },
         { "ZoneToolHint", "[SHIFT] Snap to lines | [CTRL] Snap to grid\n[E] Add | Hold [L-Click] to select." },
         { "NearClipHint", "View clip height: {0}." },
+        { "SelectedUpstreamWeightHint", "Weight: {0}." },
         { "NotOneSelectionHint", "There must be exactly one zone selected to add grid objects." },
-        { "NonPowerGridObjectHint", "Only powered objects can be selected." }
+        { "NonPowerGridObjectHint", "Only powered objects can be selected." },
+
+        { "MapperWeightField", "Weight" },
+        { "MapperWeightTooltip", "The relative chance this relation will be chosen." }
     };
 
 #if DEBUG
