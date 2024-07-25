@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using Uncreated.ZoneEditor.Data;
+using UnityEngine.UIElements;
 #if CLIENT
 using System.Collections.Generic;
 using System.Linq;
@@ -25,6 +26,8 @@ public static class EditorZones
     private static readonly CachedMulticastEvent<ZoneIndexUpdated> EventOnZoneIndexUpdated = new CachedMulticastEvent<ZoneIndexUpdated>(typeof(EditorZones), nameof(OnZoneIndexUpdated));
     internal static readonly CachedMulticastEvent<ZoneDimensionsUpdated> EventOnZoneDimensionsUpdated = new CachedMulticastEvent<ZoneDimensionsUpdated>(typeof(EditorZones), nameof(OnZoneDimensionsUpdated));
     private static readonly CachedMulticastEvent<ZoneShapeUpdated> EventOnZoneShapeUpdated = new CachedMulticastEvent<ZoneShapeUpdated>(typeof(EditorZones), nameof(OnZoneShapeUpdated));
+    private static readonly CachedMulticastEvent<ZoneTypeUpdated> EventOnZoneTypeUpdated = new CachedMulticastEvent<ZoneTypeUpdated>(typeof(EditorZones), nameof(OnZoneTypeUpdated));
+    private static readonly CachedMulticastEvent<ZoneFactionUpdated> EventOnZoneFactionUpdated = new CachedMulticastEvent<ZoneFactionUpdated>(typeof(EditorZones), nameof(OnZoneFactionUpdated));
     private static readonly CachedMulticastEvent<ZoneNameUpdated> EventOnZoneNameUpdated = new CachedMulticastEvent<ZoneNameUpdated>(typeof(EditorZones), nameof(OnZoneNameUpdated));
     private static readonly CachedMulticastEvent<ZoneShortNameUpdated> EventOnZoneShortNameUpdated = new CachedMulticastEvent<ZoneShortNameUpdated>(typeof(EditorZones), nameof(OnZoneShortNameUpdated));
     private static readonly CachedMulticastEvent<ZonePrimaryUpdated> EventOnZonePrimaryUpdated = new CachedMulticastEvent<ZonePrimaryUpdated>(typeof(EditorZones), nameof(OnZonePrimaryUpdated));
@@ -76,6 +79,24 @@ public static class EditorZones
     {
         add => EventOnZoneShapeUpdated.Add(value);
         remove => EventOnZoneShapeUpdated.Remove(value);
+    }
+    
+    /// <summary>
+    /// Invoked when a zone's type is changed locally.
+    /// </summary>
+    public static event ZoneTypeUpdated OnZoneTypeUpdated
+    {
+        add => EventOnZoneTypeUpdated.Add(value);
+        remove => EventOnZoneTypeUpdated.Remove(value);
+    }
+    
+    /// <summary>
+    /// Invoked when a zone's faction is changed locally.
+    /// </summary>
+    public static event ZoneFactionUpdated OnZoneFactionUpdated
+    {
+        add => EventOnZoneFactionUpdated.Add(value);
+        remove => EventOnZoneFactionUpdated.Remove(value);
     }
     
     /// <summary>
@@ -672,6 +693,9 @@ public static class EditorZones
             // need to use immediate since we're re-adding another component of the same type immediately
             Object.DestroyImmediate(model.Component);
 
+            obj.transform.localScale = Vector3.one;
+            obj.transform.localRotation = Quaternion.identity;
+            
             AddComponentIntl(obj, model);
         }
         else
@@ -687,6 +711,127 @@ public static class EditorZones
 
         EventOnZoneShapeUpdated.TryInvoke(model, oldShape);
     }
+
+    /// <summary>
+    /// Change a zone's type without replicating.
+    /// </summary>
+    public static bool ChangeTypeLocal(ZoneModel model, ZoneType type)
+    {
+        ThreadUtil.assertIsGameThread();
+        AssertEditor();
+
+        int index = LevelZones.GetIndexQuick(model);
+        if (index < 0)
+            return false;
+
+        ChangeTypeLocal(LevelZones.ZoneList[index], index, type);
+        return true;
+    }
+
+    /// <summary>
+    /// Change a zone's type without replicating.
+    /// </summary>
+    public static void ChangeTypeLocal(int index, ZoneType type)
+    {
+        ThreadUtil.assertIsGameThread();
+        AssertEditor();
+        AssertValidIndex(index);
+        ChangeTypeLocal(LevelZones.ZoneList[index], index, type);
+    }
+
+    private static void ChangeTypeLocal(ZoneModel model, int index, ZoneType type)
+    {
+        ZoneType oldType = model.Type;
+        if (type == oldType)
+            return;
+
+        model.Index = index;
+
+        foreach (ZoneModel zone in LevelZones.ZoneList)
+        {
+            if (zone == model || !zone.Name.Equals(model.Name, StringComparison.Ordinal))
+                continue;
+
+            if (!CanTypeHaveFaction(type) && zone.Faction != null)
+            {
+                string? oldFaction = zone.Faction;
+                zone.Faction = null;
+                EventOnZoneFactionUpdated.TryInvoke(zone, oldFaction);
+            }
+
+            zone.Type = type;
+            EventOnZoneTypeUpdated.TryInvoke(zone, oldType);
+        }
+
+        if (!CanTypeHaveFaction(type) && model.Faction != null)
+        {
+            string? oldFaction = model.Faction;
+            model.Faction = null;
+            EventOnZoneFactionUpdated.TryInvoke(model, oldFaction);
+        }
+
+        model.Type = type;
+        EventOnZoneTypeUpdated.TryInvoke(model, oldType);
+
+        UncreatedZoneEditor.Instance.isDirty = true;
+    }
+
+    /// <summary>
+    /// Change a zone's type without replicating.
+    /// </summary>
+    public static bool ChangeFactionLocal(ZoneModel model, string? faction)
+    {
+        ThreadUtil.assertIsGameThread();
+        AssertEditor();
+
+        int index = LevelZones.GetIndexQuick(model);
+        if (index < 0)
+            return false;
+
+        ChangeFactionLocal(LevelZones.ZoneList[index], index, faction);
+        return true;
+    }
+
+    /// <summary>
+    /// Change a zone's type without replicating.
+    /// </summary>
+    public static void ChangeFactionLocal(int index, string? faction)
+    {
+        ThreadUtil.assertIsGameThread();
+        AssertEditor();
+        AssertValidIndex(index);
+        ChangeFactionLocal(LevelZones.ZoneList[index], index, faction);
+    }
+
+    private static void ChangeFactionLocal(ZoneModel model, int index, string? faction)
+    {
+        if (string.IsNullOrWhiteSpace(faction))
+            faction = null;
+
+        if (!CanTypeHaveFaction(model.Type))
+            throw new ArgumentException($"A zone of type {model.Type} can not have a faction.", nameof(model));
+
+        string? oldFaction = model.Faction;
+        if (string.Equals(oldFaction, faction, StringComparison.Ordinal))
+            return;
+
+        model.Index = index;
+        model.Faction = faction;
+
+        foreach (ZoneModel zone in LevelZones.ZoneList)
+        {
+            if (zone != model && zone.Name.Equals(model.Name, StringComparison.Ordinal))
+            {
+                zone.Faction = faction;
+                EventOnZoneFactionUpdated.TryInvoke(zone, oldFaction);
+            }
+        }
+
+        UncreatedZoneEditor.Instance.isDirty = true;
+        EventOnZoneFactionUpdated.TryInvoke(model, oldFaction);
+    }
+
+    public static bool CanTypeHaveFaction(ZoneType type) => type is ZoneType.MainBase or ZoneType.AntiMainCampArea;
 
     private static void AssertEditor()
     {
@@ -726,6 +871,8 @@ public delegate void ZoneAdded(ZoneModel model);
 public delegate void ZoneRemoved(ZoneModel model);
 public delegate void ZoneIndexUpdated(ZoneModel model, int oldIndex);
 public delegate void ZoneShapeUpdated(ZoneModel model, ZoneShape oldShape);
+public delegate void ZoneTypeUpdated(ZoneModel model, ZoneType oldType);
+public delegate void ZoneFactionUpdated(ZoneModel model, string? oldFaction);
 public delegate void ZoneNameUpdated(ZoneModel model, string oldName);
 public delegate void ZoneShortNameUpdated(ZoneModel model, string? oldShortName);
 public delegate void ZonePrimaryUpdated(ZoneModel model);

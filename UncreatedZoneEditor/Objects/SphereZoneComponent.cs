@@ -43,7 +43,7 @@ public class SphereZoneComponent : BaseZoneComponent
 
         Vector3 scale = transform.localScale;
         float radius = Math.Max(scale.x, Math.Max(scale.y, scale.z));
-        Color color = Model.IsPrimary ? GizmoPrimaryColor : GizmoNonPrimaryColor;
+        Color color = GetRenderColor();
         gizmos.Sphere(center, radius, color);
 
         if (IsSelected)

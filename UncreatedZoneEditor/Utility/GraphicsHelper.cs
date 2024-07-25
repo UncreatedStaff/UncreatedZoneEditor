@@ -34,4 +34,11 @@ internal static class GraphicsHelper
         );
     }
 
+    public static bool IsInRect(in Vector2 point, in Vector2 corner1, in Vector2 corner2)
+    {
+        Vector2 min = Vector2.Min(corner1, corner2);
+        Vector2 max = Vector2.Max(corner1, corner2);
+
+        return point.x >= min.x && point.x <= max.x && point.y >= min.y && point.y <= max.y;
+    }
 }

@@ -121,11 +121,11 @@ public class ZoneMapperTool : IDevkitTool
             ZoneModel zone = LevelZones.ZoneList[i];
             Vector3 center = zone.Center with { y = 0 };
 
-            if (input && zone.IsPrimary)
+            if (zone.IsPrimary)
             {
                 Color grabColor = Color.green;
 
-                if (!isMouseConsumed && center.x + grabTargetCameraSize.x > mouseWorldPos2.x
+                if (input && !isMouseConsumed && center.x + grabTargetCameraSize.x > mouseWorldPos2.x
                                      && center.x - grabTargetCameraSize.x < mouseWorldPos2.x
                                      && center.z + grabTargetCameraSize.y > mouseWorldPos2.y
                                      && center.z - grabTargetCameraSize.y < mouseWorldPos2.y)
@@ -137,7 +137,9 @@ public class ZoneMapperTool : IDevkitTool
                 gizmos.Circle(center, Vector3.right, Vector3.forward, Math.Max(grabTargetCameraSize.x, grabTargetCameraSize.y), grabColor, layer: EGizmoLayer.Foreground);
             }
 
-            Color color = zone.IsPrimary ? BaseZoneComponent.GizmoPrimaryColor : BaseZoneComponent.GizmoNonPrimaryColor;
+            Color color = zone.Component?.Model == null
+                ? zone.IsPrimary ? BaseZoneComponent.GizmoPrimaryColor : BaseZoneComponent.GizmoNonPrimaryColor
+                : zone.Component.GetRenderColor();
 
             switch (zone.Shape)
             {
@@ -194,10 +196,11 @@ public class ZoneMapperTool : IDevkitTool
                     if (target == null)
                         continue;
 
-                    Vector3 targetCenter = CenterFromName(target);
-                    Vector2 ray = center - new Vector2(targetCenter.x, targetCenter.z);
+                    Vector3 targetCenter3 = CenterFromName(target);
+                    Vector2 targetCenter2 = new Vector2(targetCenter3.x, targetCenter3.z);
+                    Vector2 ray = center - targetCenter2;
                     float dist = GraphicsHelper.SqrDistanceToLine(in center, in ray, in mouseWorldPos2);
-                    if (closestLineZone != null && !(dist < closestLineSqrDist))
+                    if (closestLineZone != null && !(dist < closestLineSqrDist) || !GraphicsHelper.IsInRect(in mouseWorldPos2, in center, in targetCenter2))
                         continue;
 
                     closestLineSqrDist = dist;
@@ -263,7 +266,7 @@ public class ZoneMapperTool : IDevkitTool
                     EditorUI.hint(EEditorMessage.FOCUS, UncreatedZoneEditor.Instance.Translations.Translate("SelectedUpstreamWeightHint", zone.UpstreamZones[j].Weight));
                 }
 
-                Vector3 midPoint = Vector3.Lerp(center, targetCenter, 0.15f);
+                Vector3 midPoint = Vector3.LerpUnclamped(center, targetCenter, 0.15f);
                 gizmos.Line(center, midPoint, Color.green, layer: EGizmoLayer.Foreground);
                 gizmos.Line(midPoint, targetCenter, color, layer: EGizmoLayer.Foreground);
             }
@@ -321,8 +324,11 @@ public class ZoneMapperTool : IDevkitTool
             return;
 
         ZoneModel zone = LevelZones.ZoneList[_selectedZone];
-        if (_selectedLineIndex < zone.UpstreamZones.Count)
-            zone.UpstreamZones[_selectedLineIndex].Weight = newWeight;
+        if (_selectedLineIndex >= zone.UpstreamZones.Count)
+            return;
+
+        zone.UpstreamZones[_selectedLineIndex].Weight = newWeight;
+        UncreatedZoneEditor.Instance.isDirty = true;
     }
     
     private void DeleteSelectedUpstream()
@@ -336,6 +342,7 @@ public class ZoneMapperTool : IDevkitTool
 
         zone.UpstreamZones.RemoveAt(_selectedLineIndex);
         --_selectedLineIndex;
+        UncreatedZoneEditor.Instance.isDirty = true;
     }
 
     private static void AddUpstream(int fromIndex, int toIndex, float weight = 1)
@@ -354,6 +361,7 @@ public class ZoneMapperTool : IDevkitTool
             weight = 1f;
         
         zone.UpstreamZones.Add(new UpstreamZone { ZoneName = name, Weight = weight });
+        UncreatedZoneEditor.Instance.isDirty = true;
     }
 
     private bool TickOverZone(int zone)

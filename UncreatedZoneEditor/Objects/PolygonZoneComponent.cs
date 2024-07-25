@@ -105,7 +105,7 @@ public class PolygonZoneComponent : BaseZoneComponent
 
         float maxPosY = !float.IsFinite(_maxHeight) ? Landscape.TILE_HEIGHT / 2f : _maxHeight;
         float minPosY = !float.IsFinite(_minHeight) ? Landscape.TILE_HEIGHT / -2f : _minHeight;
-        Color color = Model.IsPrimary ? GizmoPrimaryColor : GizmoNonPrimaryColor;
+        Color color = GetRenderColor();
         for (int i = 0; i < _points.Count; ++i)
         {
             Vector2 point = _points[i];

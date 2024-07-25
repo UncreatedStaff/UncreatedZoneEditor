@@ -1,5 +1,6 @@
 ﻿#if CLIENT
 using System;
+using SDG.Framework.Landscapes;
 using Uncreated.ZoneEditor.Data;
 using Uncreated.ZoneEditor.Tools;
 
@@ -67,28 +68,14 @@ public class CircleZoneComponent : BaseZoneComponent
 
     private void UpdateHeightOrRadius()
     {
-        float center;
-        float height;
-        if (!float.IsFinite(_maxHeight) && !float.IsFinite(_minHeight))
-        {
-            height = 2048f;
-            center = 0f;
-        }
-        else if (!float.IsFinite(_maxHeight))
-        {
-            height = 1024f - _minHeight;
-            center = (_minHeight + 2048f) / 2f - 1024f;
-        }
-        else if (!float.IsFinite(_minHeight))
-        {
-            height = _maxHeight - 1024f;
-            center = (_minHeight + 2048f) / 2f - 1024f;
-        }
-        else
-        {
-            height = _maxHeight - _minHeight;
-            center = _minHeight + (_maxHeight - _minHeight) / 2f;
-        }
+        float maxHeight = _maxHeight, minHeight = _minHeight;
+        if (!float.IsFinite(maxHeight))
+            maxHeight = Landscape.TILE_HEIGHT / 2f;
+        if (!float.IsFinite(minHeight))
+            minHeight = -Landscape.TILE_HEIGHT / 2f;
+
+        float height = maxHeight - minHeight;
+        float center = minHeight + (maxHeight - minHeight) / 2f;
 
         transform.localScale = new Vector3(_radius, height, _radius);
         Center = Center with { y = center };
@@ -135,7 +122,7 @@ public class CircleZoneComponent : BaseZoneComponent
 
         Vector3 scale = transform.localScale;
         float radius = Math.Min(scale.x, scale.z);
-        gizmos.Cylinder(transform.position, Vector3.up, scale.y, radius, Model.IsPrimary ? GizmoPrimaryColor : GizmoNonPrimaryColor, alongTerrain: IsSelected);
+        gizmos.Cylinder(transform.position, Vector3.up, scale.y, radius, GetRenderColor(), alongTerrain: IsSelected);
     }
 
     public override void RevertToDefault()

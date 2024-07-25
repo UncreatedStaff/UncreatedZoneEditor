@@ -38,13 +38,22 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "ZoneMapperButton", "Zone Mapper" },
         { "ZoneMapperButtonTooltip", "Tool used to view and edit zones on the map and their adjacencies." },
         { "CreateZoneNoName", "Zones must have a non-whitespace name." },
+        
         { "ShapeAABB", "Rectangle" },
         { "ShapeCylinder", "Circle" },
         { "ShapeSphere", "Sphere" },
         { "ShapePolygon", "Polygon" },
 
+        { "TypeFlag", "Capture Flag" },
+        { "TypeMainBase", "Main Base" },
+        { "TypeAntiMainCampArea", "Anti-Maincamp Zone" },
+        { "TypeOther", "Misc." },
+
         { "ShapeField", "Shape" },
         { "ShapeTooltip", "Shape of the border of the zone." },
+
+        { "TypeField", "Type" },
+        { "TypeTooltip", "Type or use case of the zone." },
 
         { "NameField", "Display Name" },
         { "NameTooltip", "Display name of the zone." },

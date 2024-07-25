@@ -109,11 +109,98 @@ public static class LevelZones
 
         ZoneJsonList newConfig = _zoneList.Configuration ?? new ZoneJsonList();
 
+        for (int i = 0; i < ZoneList.Count; ++i)
+        {
+            ZoneModel zone = ZoneList[i];
+            Vector3 center = zone.Center;
+            if (!float.IsFinite(center.x) || !float.IsFinite(center.y) || !float.IsFinite(center.z))
+            {
+                if (!float.IsFinite(center.x))
+                    center.x = 0f;
+                if (!float.IsFinite(center.y))
+                    center.y = 0f;
+                if (!float.IsFinite(center.z))
+                    center.z = 0f;
+
+                zone.Center = center;
+            }
+
+            Vector3 spawn = zone.Center;
+            if (!float.IsFinite(spawn.x) || !float.IsFinite(spawn.y) || !float.IsFinite(spawn.z))
+            {
+                if (!float.IsFinite(spawn.x))
+                    spawn.x = 0f;
+                if (!float.IsFinite(spawn.y))
+                    spawn.y = 0f;
+                if (!float.IsFinite(spawn.z))
+                    spawn.z = 0f;
+
+                zone.Spawn = spawn;
+            }
+
+            if (!float.IsFinite(zone.SpawnYaw))
+                zone.SpawnYaw = 0f;
+
+            if (zone.CircleInfo != null)
+            {
+                if (zone.CircleInfo.MinimumHeight.HasValue && !float.IsFinite(zone.CircleInfo.MinimumHeight.Value))
+                    zone.CircleInfo.MinimumHeight = null;
+                if (zone.CircleInfo.MaximumHeight.HasValue && !float.IsFinite(zone.CircleInfo.MaximumHeight.Value))
+                    zone.CircleInfo.MaximumHeight = null;
+
+                if (!float.IsFinite(zone.CircleInfo.Radius))
+                    zone.CircleInfo.Radius = 10f;
+            }
+            
+            if (zone.PolygonInfo != null)
+            {
+                if (zone.PolygonInfo.MinimumHeight.HasValue && !float.IsFinite(zone.PolygonInfo.MinimumHeight.Value))
+                    zone.PolygonInfo.MinimumHeight = null;
+                if (zone.PolygonInfo.MaximumHeight.HasValue && !float.IsFinite(zone.PolygonInfo.MaximumHeight.Value))
+                    zone.PolygonInfo.MaximumHeight = null;
+
+                Vector2[] pts = zone.PolygonInfo.Points;
+                for (int j = 0; j < pts.Length; ++j)
+                {
+                    ref Vector2 pt = ref pts[j];
+                    if (!float.IsFinite(pt.x))
+                        pt.x = 0f;
+                    if (!float.IsFinite(pt.y))
+                        pt.y = 0f;
+                }
+            }
+
+            if (zone.AABBInfo != null)
+            {
+                Vector3 size = zone.AABBInfo.Size;
+                if (!float.IsFinite(size.x) || !float.IsFinite(size.y) || !float.IsFinite(size.z))
+                {
+                    if (!float.IsFinite(size.x))
+                        size.x = 0f;
+                    if (!float.IsFinite(size.y))
+                        size.y = 0f;
+                    if (!float.IsFinite(size.z))
+                        size.z = 0f;
+
+                    zone.AABBInfo.Size = size;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(zone.Faction))
+                zone.Faction = null;
+        }
+
         newConfig.Zones ??= [];
         newConfig.Zones.Clear();
         newConfig.Zones.AddRange(ZoneList);
 
         _zoneList.Configuration = newConfig;
+
+        if (File.Exists(path) && dir != null)
+        {
+            File.Copy(path, Path.Combine(dir, Path.GetFileNameWithoutExtension(path) + "_backup.json"), overwrite: true);
+        }
+
         _zoneList.SaveConfig();
 
         UncreatedZoneEditor.Instance.LogInfo($"Saved {newConfig.Zones.Count.Format()} zone(s).");

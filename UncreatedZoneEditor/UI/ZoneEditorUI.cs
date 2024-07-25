@@ -21,6 +21,7 @@ public class ZoneEditorUI : SleekFullscreenBox
     public bool IsActive { get; private set; }
 
     private readonly ISleekField _nameField;
+    private readonly ISleekField _factionField;
     private readonly ISleekField _shortNameField;
     private readonly ISleekFloat32Field _minHeightField;
     private readonly ISleekSlider _minHeightSlider;
@@ -32,6 +33,7 @@ public class ZoneEditorUI : SleekFullscreenBox
     private readonly ISleekButton _markAsPrimaryButton;
     private readonly SleekList<ZoneModel> _zoneList;
     private readonly SleekButtonState _shapeToggle;
+    private readonly SleekButtonState _typeToggle;
     public ZoneShape SelectedShape
     {
         get => (ZoneShape)_shapeToggle.state;
@@ -39,6 +41,16 @@ public class ZoneEditorUI : SleekFullscreenBox
         {
             _shapeToggle.state = (int)value;
             OnShapeToggled(_shapeToggle, (int)value);
+        }
+    }
+    
+    public ZoneType SelectedType
+    {
+        get => (ZoneType)_typeToggle.state;
+        set
+        {
+            _typeToggle.state = (int)value;
+            OnTypeToggled(_typeToggle, (int)value);
         }
     }
 
@@ -58,7 +70,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         set
         {
             _shortNameField.Text = value ?? string.Empty;
-            NameFieldUpdated(_shortNameField);
+            ShortNameFieldUpdated(_shortNameField, _shortNameField.Text);
         }
     }
 
@@ -79,6 +91,16 @@ public class ZoneEditorUI : SleekFullscreenBox
         {
             TryUpdateMaxHeight(ref value);
             UpdateMaxHeightUI(value);
+        }
+    }
+
+    public string CurrentFaction
+    {
+        get => _factionField.Text ?? string.Empty;
+        set
+        {
+            _factionField.Text = value ?? string.Empty;
+            FactionFieldUpdated(_factionField, _factionField.Text);
         }
     }
 
@@ -145,7 +167,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         _shortNameField.SizeOffset_X = 230f;
         _shortNameField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("ShortNameTooltip");
         _shortNameField.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("ShortNameField"), ESleekSide.RIGHT);
-        _shortNameField.OnTextSubmitted += ShortNameFieldUpdated;
+        _shortNameField.OnTextChanged += ShortNameFieldUpdated;
 
         AddChild(_shortNameField);
 
@@ -241,6 +263,38 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         AddChild(_markAsPrimaryButton);
 
+        _typeToggle = new SleekButtonState
+        (
+        [
+            new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeFlag")),
+            new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeMainBase")),
+            new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeAntiMainCampArea")),
+            new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeOther"))
+        ])
+        {
+            PositionScale_Y = 1f,
+            PositionOffset_X = 0f,
+            SizeOffset_Y = 30f,
+            SizeOffset_X = 230f,
+            tooltip = UncreatedZoneEditor.Instance.Translations.Translate("TypeTooltip")
+        };
+
+        AddChild(_typeToggle);
+
+        _typeToggle.onSwappedState += OnTypeToggled;
+        _typeToggle.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("TypeField"), ESleekSide.RIGHT);
+
+        _factionField = Glazier.Get().CreateStringField();
+        _factionField.PositionScale_Y = 1f;
+        _factionField.PositionOffset_X = 0f;
+        _factionField.SizeOffset_Y = 30f;
+        _factionField.SizeOffset_X = 230f;
+        _factionField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("FactionTooltip");
+        _factionField.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("FactionField"), ESleekSide.RIGHT);
+        _factionField.OnTextChanged += FactionFieldUpdated;
+
+        AddChild(_factionField);
+
         UpdateBottomLeftStack();
 
         EditorZones.OnZoneAdded += UpdateZoneList;
@@ -250,6 +304,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         EditorZones.OnZoneNameUpdated += NameOrShortNameChanged;
         EditorZones.OnZoneShortNameUpdated += NameOrShortNameChanged;
         EditorZones.OnZonePrimaryUpdated += PrimaryUpdated;
+        EditorZones.OnZoneTypeUpdated += TypeUpdated;
     }
 
     public override void OnDestroy()
@@ -263,6 +318,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         EditorZones.OnZoneNameUpdated -= NameOrShortNameChanged;
         EditorZones.OnZoneShortNameUpdated -= NameOrShortNameChanged;
         EditorZones.OnZonePrimaryUpdated -= PrimaryUpdated;
+        EditorZones.OnZoneTypeUpdated -= TypeUpdated;
     }
 
     private void UpdateBottomLeftStack()
@@ -336,6 +392,20 @@ public class ZoneEditorUI : SleekFullscreenBox
             h -= 5f;
         }
 
+        if (_typeToggle.IsVisible)
+        {
+            h -= _typeToggle.SizeOffset_Y;
+            _typeToggle.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
+        if (_factionField.IsVisible)
+        {
+            h -= _factionField.SizeOffset_Y;
+            _factionField.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
         // make compiler happy
         _ = h;
     }
@@ -389,7 +459,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         }
     }
 
-    private void ShortNameFieldUpdated(ISleekField field)
+    private void ShortNameFieldUpdated(ISleekField field, string text)
     {
         string? shortName = _shortNameField.Text;
         if (string.IsNullOrWhiteSpace(shortName))
@@ -534,13 +604,42 @@ public class ZoneEditorUI : SleekFullscreenBox
 
     private void NameOrShortNameChanged(ZoneModel zone, string? oldValue)
     {
-        UpdateFieldsFromSelection();
+        if (EditorZones.IsZoneSelected(zone))
+        {
+            UpdateFieldsFromSelection();
+        }
         _zoneList.ForceRebuildElements();
     }
-    
+
+    private void FactionFieldUpdated(ISleekField field, string text)
+    {
+        string? faction = CurrentFaction;
+        if (string.IsNullOrWhiteSpace(faction))
+            faction = null;
+
+        foreach (ZoneModel selectedZone in EditorZones.EnumerateSelectedZones())
+        {
+            if (EditorZones.CanTypeHaveFaction(selectedZone.Type) && !string.Equals(selectedZone.Faction, faction, StringComparison.Ordinal))
+            {
+                EditorZones.ChangeFactionLocal(selectedZone, faction);
+            }
+        }
+    }
+
+    private void TypeUpdated(ZoneModel zone, ZoneType oldType)
+    {
+        if (EditorZones.IsZoneSelected(zone))
+        {
+            UpdateFieldsFromSelection();
+        }
+    }
+
     private void ShapeChanged(ZoneModel zone, ZoneShape oldShape)
     {
-        UpdateFieldsFromSelection();
+        if (EditorZones.IsZoneSelected(zone))
+        {
+            UpdateFieldsFromSelection();
+        }
     }
 
     private void SelectionChanged(ZoneModel selectedOrDeselected, bool wasSelected)
@@ -556,6 +655,18 @@ public class ZoneEditorUI : SleekFullscreenBox
             if (selectedZone.Shape != shape)
             {
                 EditorZones.ChangeShapeLocal(selectedZone, shape);
+            }
+        }
+    }
+
+    private void OnTypeToggled(SleekButtonState button, int index)
+    {
+        ZoneType type = SelectedType;
+        foreach (ZoneModel selectedZone in EditorZones.EnumerateSelectedZones())
+        {
+            if (selectedZone.Type != type)
+            {
+                EditorZones.ChangeTypeLocal(selectedZone, type);
             }
         }
     }
@@ -622,7 +733,11 @@ public class ZoneEditorUI : SleekFullscreenBox
             _nameField.Text = string.Empty;
             _shortNameField.Text = string.Empty;
             _shapeToggle.state = (int)ZoneShape.Polygon;
+            _factionField.Text = string.Empty;
+            _factionField.IsVisible = false;
             _shapeToggle.isInteractable = false;
+            _typeToggle.state = (int)ZoneType.Flag;
+            _typeToggle.isInteractable = false;
             _markAsPrimaryButton.IsVisible = false;
             _polygonEditButton.IsVisible = true;
             _polygonEditButton.Text = UncreatedZoneEditor.Instance.Translations.Translate("StopEditPolygonButton");
@@ -649,8 +764,20 @@ public class ZoneEditorUI : SleekFullscreenBox
             bool heightVisibility = zone.Shape is ZoneShape.Polygon or ZoneShape.Cylinder;
             _shapeToggle.state = (int)zone.Shape;
             _shapeToggle.isInteractable = true;
+            _typeToggle.state = (int)zone.Type;
+            _typeToggle.isInteractable = true;
             _shortNameField.Text = zone.ShortName ?? string.Empty;
             _nameField.Text = zone.Name;
+            if (EditorZones.CanTypeHaveFaction(zone.Type))
+            {
+                _factionField.Text = zone.Faction ?? string.Empty;
+                _factionField.IsVisible = true;
+            }
+            else
+            {
+                _factionField.Text = string.Empty;
+                _factionField.IsVisible = false;
+            }
             if (zone.CircleInfo != null)
             {
                 UpdateMinHeightUI(zone.CircleInfo.MinimumHeight ?? float.NegativeInfinity);
@@ -700,6 +827,10 @@ public class ZoneEditorUI : SleekFullscreenBox
         _maxHeightField.IsVisible = true;
         _maxHeightInfinityToggle.IsVisible = true;
         _polygonEditButton.IsVisible = false;
+        _typeToggle.state = (int)ZoneType.Flag;
+        _typeToggle.isInteractable = false;
+        _factionField.Text = string.Empty;
+        _factionField.IsVisible = false;
         UpdateBottomLeftStack();
     }
 

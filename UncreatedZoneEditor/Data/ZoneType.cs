@@ -3,6 +3,6 @@ public enum ZoneType
 {
     Flag,
     MainBase,
-    MainCampArea,
+    AntiMainCampArea,
     Other
 }

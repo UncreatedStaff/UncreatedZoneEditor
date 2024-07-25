@@ -45,7 +45,7 @@ public class RectangleZoneComponent : BaseZoneComponent
 
         Vector3 size = RoundSize();
 
-        Color color = Model.IsPrimary ? GizmoPrimaryColor : GizmoNonPrimaryColor;
+        Color color = GetRenderColor();
         if (!transform.rotation.IsNearlyIdentity())
         {
             gizmos.Box(transform.localToWorldMatrix, Vector3.one, Color.gray);

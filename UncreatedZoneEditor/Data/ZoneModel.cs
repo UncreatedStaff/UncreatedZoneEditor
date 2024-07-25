@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using System.Linq;
 #if CLIENT
 using Uncreated.ZoneEditor.Objects;
 #endif
@@ -88,6 +89,9 @@ public class ZoneModel : ICloneable
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ZoneType Type { get; set; }
 
+    [JsonPropertyName("faction")]
+    public string? Faction { get; set; }
+
 #if CLIENT
     [JsonIgnore]
     public BaseZoneComponent? Component { get; set; }
@@ -105,7 +109,12 @@ public class ZoneModel : ICloneable
             Center = Center,
             Spawn = Spawn,
             SpawnYaw = SpawnYaw,
-            Shape = Shape
+            Shape = Shape,
+            Type = Type,
+            IsPrimary = IsPrimary,
+            Faction = Faction,
+            GridObjects = new List<uint>(GridObjects),
+            UpstreamZones = new List<UpstreamZone>(UpstreamZones.Select(x => new UpstreamZone { Weight = x.Weight, ZoneName = x.ZoneName }))
         };
     }
 }
