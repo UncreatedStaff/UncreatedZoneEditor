@@ -17,7 +17,7 @@ public class ZoneMapperUI : SleekFullscreenBox
         _weightField.PositionScale_Y = 1f;
         _weightField.PositionOffset_Y = -30f;
         _weightField.SizeOffset_Y = 30f;
-        _weightField.SizeOffset_X = 230f;
+        _weightField.SizeOffset_X = 230f; 
         _weightField.Value = 1f;
         _weightField.IsVisible = false;
         _weightField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("MapperWeightTooltip");
