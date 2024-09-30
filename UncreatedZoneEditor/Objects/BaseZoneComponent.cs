@@ -1,8 +1,10 @@
 ﻿#if CLIENT
+using System;
 using Cysharp.Threading.Tasks;
 using DevkitServer;
 using SDG.Framework.Devkit.Interactable;
 using System.Globalization;
+using DanielWillett.ReflectionTools;
 using Uncreated.ZoneEditor.Data;
 
 namespace Uncreated.ZoneEditor.Objects;
@@ -12,6 +14,11 @@ public abstract class BaseZoneComponent : MonoBehaviour,
     IDevkitSelectionTransformableHandler,
     IDevkitSelectionCopyableHandler
 {
+    private static readonly StaticGetter<Shader>? GetLogicShader =
+        Accessor.GenerateStaticGetter<Shader>(
+            AccessorExtensions.DevkitServer.GetType("DevkitServer.Core.SharedResources"), "LogicShader",
+            throwOnError: false);
+
     private Vector3 _center;
     private Vector3 _spawn;
     private float _spawnYaw;
@@ -23,8 +30,10 @@ public abstract class BaseZoneComponent : MonoBehaviour,
 #nullable disable   
     public Collider Collider { get; protected set; }
     public ZoneModel Model { get; private set; }
+    public GameObject PlayerSpawnObject { get; private set; }
 #nullable restore
     public bool IsSelected { get; internal set; }
+    public bool IsPlayerSelected { get; internal set; }
     public Vector3 Center
     {
         get => _center;
@@ -73,6 +82,36 @@ public abstract class BaseZoneComponent : MonoBehaviour,
         transform.position = _center;
         gameObject.layer = 3;
         gameObject.tag = "Logic";
+
+        Transform child = transform.Find("UZE_Player");
+        if (child != null)
+        {
+            PlayerSpawnObject = child.gameObject;
+        }
+        else
+        {
+            GameObject childObj = Instantiate(Resources.Load<GameObject>("Edit/Player"));
+
+            childObj.name = "UZE_Player";
+            childObj.transform.SetPositionAndRotation(_spawn, Quaternion.Euler(0f, _spawnYaw, 0f));
+            childObj.transform.SetParent(transform, true);
+            childObj.layer = 3;
+
+            Shader? logicShader = GetLogicShader?.Invoke();
+            if (logicShader != null && childObj.TryGetComponent(out Renderer renderer))
+            {
+                renderer.material.shader = logicShader;
+            }
+
+            childObj.AddComponent<PlayerSpawnWidgetComponent>().Init(this);
+
+            childObj.SetActive(false);
+
+            PlayerSpawnObject = childObj;
+        }
+
+        Vector3 scale = transform.localScale;
+        PlayerSpawnObject.transform.localScale = new Vector3(1f / scale.x, 1f / scale.y, 1f / scale.z);
     }
 
     public Color GetRenderColor()
@@ -93,12 +132,14 @@ public abstract class BaseZoneComponent : MonoBehaviour,
         if (Model.IsPrimary)
         {
             gizmos.Arrow(transform.position + Vector3.up * 10f, Vector3.down, 10f, Color.green);
+            gizmos.Arrow(_spawn + Vector3.up * 5f, Vector3.down, 5f, Color.magenta);
         }
     }
 
     void IDevkitInteractableBeginSelectionHandler.beginSelection(InteractionData data)
     {
         IsSelected = true;
+        PlayerSpawnObject?.SetActive(true);
         UniTask.Create(async () =>
         {
             await UniTask.WaitForEndOfFrame(DevkitServerModule.ComponentHost);
@@ -109,6 +150,7 @@ public abstract class BaseZoneComponent : MonoBehaviour,
     void IDevkitInteractableEndSelectionHandler.endSelection(InteractionData data)
     {
         IsSelected = false;
+        PlayerSpawnObject?.SetActive(false);
         UniTask.Create(async () =>
         {
             await UniTask.WaitForEndOfFrame(DevkitServerModule.ComponentHost);
@@ -125,6 +167,20 @@ public abstract class BaseZoneComponent : MonoBehaviour,
     {
         _center = transform.position;
         Model.Center = _center;
+        if (PlayerSpawnObject != null)
+        {
+            _spawn = PlayerSpawnObject.transform.position;
+            _spawnYaw = PlayerSpawnObject.transform.eulerAngles.y;
+
+            PlayerSpawnObject.transform.SetPositionAndRotation(_spawn, Quaternion.Euler(0f, _spawnYaw, 0f));
+            Vector3 scale = transform.localScale;
+            PlayerSpawnObject.transform.localScale = new Vector3(1f / scale.x, 1f / scale.y, 1f / scale.z);
+        }
+
+        Model.Spawn = _spawn;
+        Model.SpawnYaw = _spawnYaw;
+
+        UncreatedZoneEditor.Instance.isDirty = true;
     }
 
     [UsedImplicitly]
@@ -134,6 +190,7 @@ public abstract class BaseZoneComponent : MonoBehaviour,
             return;
 
         EditorZones.AddFromModelLocal(Model);
+        PlayerSpawnObject?.SetActive(true);
         UncreatedZoneEditor.Instance.LogDebug($"Added {Model.Name.Format()} from disabled object (@ {AddBackAtIndex.Format()}).");
     }
 
@@ -144,6 +201,7 @@ public abstract class BaseZoneComponent : MonoBehaviour,
             return;
 
         EditorZones.TemporarilyRemoveZoneLocal(Model, LevelZones.GetIndexQuick(Model));
+        PlayerSpawnObject?.SetActive(false);
         UncreatedZoneEditor.Instance.LogDebug($"Removed {Model.Name.Format()} from enabled object (@ {Model.Index.Format()}).");
     }
 
@@ -156,7 +214,7 @@ public abstract class BaseZoneComponent : MonoBehaviour,
         }
     }
 
-    public GameObject copySelection()
+    GameObject IDevkitSelectionCopyableHandler.copySelection()
     {
         ZoneModel newModel = (ZoneModel)Model.Clone();
 

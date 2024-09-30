@@ -22,6 +22,7 @@ public class ZoneEditorUI : SleekFullscreenBox
 
     private readonly ISleekField _nameField;
     private readonly ISleekField _factionField;
+    private readonly ISleekButton _editSpawnButton;
     private readonly ISleekField _shortNameField;
     private readonly ISleekFloat32Field _minHeightField;
     private readonly ISleekSlider _minHeightSlider;
@@ -269,6 +270,7 @@ public class ZoneEditorUI : SleekFullscreenBox
             new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeFlag")),
             new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeMainBase")),
             new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeAntiMainCampArea")),
+            new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeLobby")),
             new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeOther"))
         ])
         {
@@ -294,6 +296,17 @@ public class ZoneEditorUI : SleekFullscreenBox
         _factionField.OnTextChanged += FactionFieldUpdated;
 
         AddChild(_factionField);
+
+        _editSpawnButton = Glazier.Get().CreateButton();
+        _editSpawnButton.PositionScale_Y = 1f;
+        _editSpawnButton.PositionOffset_X = 0f;
+        _editSpawnButton.SizeOffset_Y = 30f;
+        _editSpawnButton.SizeOffset_X = 230f;
+        _editSpawnButton.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("EditSpawnButtonTooltip");
+        _editSpawnButton.Text = UncreatedZoneEditor.Instance.Translations.Translate("EditSpawnButton");
+        _editSpawnButton.OnClicked += OnEditSpawnClicked;
+
+        AddChild(_editSpawnButton);
 
         UpdateBottomLeftStack();
 
@@ -406,6 +419,13 @@ public class ZoneEditorUI : SleekFullscreenBox
             h -= 5f;
         }
 
+        if (_editSpawnButton.IsVisible)
+        {
+            h -= _editSpawnButton.SizeOffset_Y;
+            _editSpawnButton.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
         // make compiler happy
         _ = h;
     }
@@ -439,6 +459,15 @@ public class ZoneEditorUI : SleekFullscreenBox
             _polygonEditButton.Text = UncreatedZoneEditor.Instance.Translations.Translate("EditPolygonButton");
         }
     }
+
+    private void OnEditSpawnClicked(ISleekElement button)
+    {
+        if (UserControl.ActiveTool is not ZoneEditorTool tool)
+            return;
+
+        tool.SelectSpawnWidget();
+    }
+
 
     private static float HeightToSlider(float height) => Mathf.Clamp01(MathF.Sqrt(Math.Max(0, height + Landscape.TILE_HEIGHT / 2f)) / 45.254834f);
     private static float SliderToHeight(float state) => MathF.Pow(state * 45.254834f, 2f) - Landscape.TILE_HEIGHT / 2f;

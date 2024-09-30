@@ -47,6 +47,7 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "TypeFlag", "Capture Flag" },
         { "TypeMainBase", "Main Base" },
         { "TypeAntiMainCampArea", "Anti-Maincamp Zone" },
+        { "TypeLobby", "Lobby" },
         { "TypeOther", "Misc." },
 
         { "ShapeField", "Shape" },
@@ -54,6 +55,9 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
 
         { "TypeField", "Type" },
         { "TypeTooltip", "Type or use case of the zone." },
+
+        { "FactionField", "Faction ID" },
+        { "FactionTooltip", "The ID of the faction this zone is related to." },
 
         { "NameField", "Display Name" },
         { "NameTooltip", "Display name of the zone." },
@@ -63,6 +67,9 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
 
         { "SetAsPrimaryButton", "Set as Primary" },
         { "SetAsPrimaryTooltip", "Marks this part of a zone cluster as the primary zone." },
+
+        { "EditSpawnButton", "Edit Spawnpoint" },
+        { "EditSpawnButtonTooltip", "Edit the point at which players teleporting to this zone spawn at." },
 
         { "MinHeightField", "Minimum Height" },
         { "MinHeightTooltip", "The minimum Y value of the zone's effect." },

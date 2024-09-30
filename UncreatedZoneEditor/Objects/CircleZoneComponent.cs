@@ -78,6 +78,8 @@ public class CircleZoneComponent : BaseZoneComponent
         float center = minHeight + (maxHeight - minHeight) / 2f;
 
         transform.localScale = new Vector3(_radius, height, _radius);
+        if (PlayerSpawnObject is not null)
+            PlayerSpawnObject.transform.localScale = new Vector3(1f / _radius, 1f / height, 1f / _radius);
         Center = Center with { y = center };
     }
 

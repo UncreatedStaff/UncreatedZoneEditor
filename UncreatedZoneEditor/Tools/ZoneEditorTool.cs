@@ -6,6 +6,7 @@ using SDG.Framework.Landscapes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using SDG.Framework.Devkit.Interactable;
 using Uncreated.ZoneEditor.Data;
 using Uncreated.ZoneEditor.Objects;
 using Uncreated.ZoneEditor.UI;
@@ -71,6 +72,18 @@ public class ZoneEditorTool : DevkitServerSelectionTool
     {
         CanRotate = true;
         HighlightHover = false;
+    }
+
+    public void SelectSpawnWidget()
+    {
+        BaseZoneComponent? selectedZone = LevelZones.GetPrimary(EditorZones.EnumerateSelectedZones().SingleOrDefaultSafe())?.Component;
+
+        if (selectedZone == null || selectedZone.PlayerSpawnObject == null)
+            return;
+
+        DevkitSelectionManager.clear();
+
+        DevkitSelectionManager.add(new DevkitSelection(selectedZone.PlayerSpawnObject, selectedZone.PlayerSpawnObject.GetComponent<Collider>()));
     }
 
     internal void OnGridObjectRemoved(LevelObject obj, RegionIdentifier id)
@@ -249,7 +262,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             }
         }
     }
-
+    
     protected override bool TryRaycastSelectableItems(ref Ray ray, out RaycastHit hit)
     {
         if (_polygonEditTarget == null)
@@ -273,6 +286,16 @@ public class ZoneEditorTool : DevkitServerSelectionTool
     {
         if (_polygonEditTarget != null)
             return;
+
+        ZoneModel? selectedZone = LevelZones.GetPrimary(EditorZones.EnumerateSelectedZones().SingleOrDefaultSafe());
+        if (selectedZone != null && selectedZone.Component != null && selectedZone.Component.IsPlayerSelected && selectedZone.Component.PlayerSpawnObject != null)
+        {
+            // move player selection widget
+            selectedZone.Component.PlayerSpawnObject.transform.position = position;
+            selectedZone.Component.PlayerSpawnObject.transform.rotation = Quaternion.Euler(0f, rotation.eulerAngles.y, 0f);
+            ((IDevkitSelectionTransformableHandler)selectedZone.Component).transformSelection();
+            return;
+        }
 
         if (ZoneEditorUI.Instance?.CurrentName is not { Length: > 0 } name)
         {

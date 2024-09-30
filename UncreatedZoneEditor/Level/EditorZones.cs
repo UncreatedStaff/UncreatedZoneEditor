@@ -146,9 +146,10 @@ public static class EditorZones
         AssertEditor();
 
         return DevkitSelectionManager.selection
-            .Select(sel => sel.gameObject.TryGetComponent(out BaseZoneComponent comp) ? comp : null)
+            .Select(sel => sel.gameObject.GetComponentInParent<BaseZoneComponent>())
             .Where(comp => comp != null)
-            .Select(comp => comp!.Model);
+            .Select(comp => comp!.Model)
+            .Distinct();
     }
 
     /// <summary>
@@ -172,8 +173,8 @@ public static class EditorZones
         }
 
         return DevkitSelectionManager.selection.FirstOrDefault(x => x.collider == model.Component.Collider);
-
     }
+
     internal static void Unload()
     {
         foreach (BaseZoneComponent comp in ComponentsPendingUndo)

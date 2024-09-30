@@ -18,6 +18,8 @@ public class RectangleZoneComponent : BaseZoneComponent
         {
             _size = value;
             transform.localScale = value;
+            if (PlayerSpawnObject is not null)
+                PlayerSpawnObject.transform.localScale = new Vector3(1f / value.x, 1f / value.y, 1f / value.z);
             (Model.AABBInfo ??= new ZoneAABBInfo()).Size = value;
         }
     }
@@ -26,10 +28,10 @@ public class RectangleZoneComponent : BaseZoneComponent
     {
         model.AABBInfo ??= new ZoneAABBInfo { Size = new Vector3(10f, 10f, 10f) };
 
-        base.Init(model);
-
         _size = model.AABBInfo.Size;
         transform.localScale = _size;
+
+        base.Init(model);
 
         _collider = gameObject.GetOrAddComponent<BoxCollider>();
         _collider.size = Vector3.one;

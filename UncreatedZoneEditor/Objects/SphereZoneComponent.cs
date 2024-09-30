@@ -18,6 +18,8 @@ public class SphereZoneComponent : BaseZoneComponent
         {
             _radius = value;
             transform.localScale = new Vector3(value, value, value);
+            if (PlayerSpawnObject is not null)
+                PlayerSpawnObject.transform.localScale = new Vector3(1f / value, 1f / value, 1f / value);
             (Model.CircleInfo ??= new ZoneCircleInfo()).Radius = value;
         }
     }
@@ -26,10 +28,11 @@ public class SphereZoneComponent : BaseZoneComponent
     {
         model.CircleInfo ??= new ZoneCircleInfo { Radius = 10f };
 
-        base.Init(model);
-
         _radius = model.CircleInfo.Radius;
         transform.localScale = new Vector3(_radius, _radius, _radius);
+
+        base.Init(model);
+
         _collider = gameObject.GetOrAddComponent<SphereCollider>();
         _collider.radius = 1f;
         Collider = _collider;
