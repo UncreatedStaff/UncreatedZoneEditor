@@ -49,6 +49,7 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "TypeAntiMainCampArea", "Anti-Maincamp Zone" },
         { "TypeLobby", "Lobby" },
         { "TypeOther", "Misc." },
+        { "TypeWarRoom", "War Room" },
 
         { "ShapeField", "Shape" },
         { "ShapeTooltip", "Shape of the border of the zone." },
@@ -80,6 +81,9 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "MaxHeightTooltip", "The maximum Y value of the zone's effect." },
         { "MaxHeightInfinityTooltip", "Adds no limit to the maximum height." },
         { "MaxHeightInfinityToggle", "Infinite" },
+
+        { "HideOthersToggle", "Hide Deselected Zones" },
+        { "HideOthersToggleTooltip", "Hides all zones other than the one you're editing." },
 
         { "EditPolygonButton", "Edit Vertices" },
         { "EditPolygonTooltip", "Edit vertex locations from a top-down view." },

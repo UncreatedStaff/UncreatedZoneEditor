@@ -1,6 +1,10 @@
 <Project>
   <Import Project="Paths.targets"/>
 
+  <PropertyGroup>
+    <DevkitServerModulePath>$(SharedPath)/Modules/DevkitServer</DevkitServerModulePath>
+  </PropertyGroup>
+
   <!-- UniTask -->
   <ItemGroup>
     <Reference Include="UniTask">
@@ -8,10 +12,6 @@
       <Private>false</Private>
     </Reference>
   </ItemGroup>
-
-  <PropertyGroup>
-    <DevkitServerModulePath>$(SharedPath)/Modules/DevkitServer</DevkitServerModulePath>
-  </PropertyGroup>
 
   <Import Project="Unturned.targets"/>
 
