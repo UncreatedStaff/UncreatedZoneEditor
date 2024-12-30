@@ -118,6 +118,7 @@ public abstract class BaseZoneComponent : MonoBehaviour,
         return Model.Type switch
         {
             ZoneType.MainBase => Model.IsPrimary ? new Color32(255, 153, 153, 255) : new Color32(255, 77, 77, 255),
+            ZoneType.WarRoom => Model.IsPrimary ? new Color32(255, 148, 77, 255) : new Color32(179, 71, 0, 255),
             ZoneType.AntiMainCampArea => Model.IsPrimary ? new Color32(255, 153, 255, 255) : new Color32(255, 26, 255, 255),
             ZoneType.Other => Model.IsPrimary ? new Color32(179, 230, 255, 255) : new Color32(102, 204, 255, 255),
             _ => Model.IsPrimary ? GizmoPrimaryColor : GizmoNonPrimaryColor

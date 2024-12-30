@@ -24,6 +24,9 @@ internal class ZoneJsonList : SchemaConfiguration
     
     [JsonPropertyName("zones")]
     public List<ZoneModel>? Zones { get; set; }
+
+    [JsonPropertyName("hide_deselected_zones")]
+    public bool HideDeselectedZones { get; set; }
 }
 
 public class ZoneModel : ICloneable

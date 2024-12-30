@@ -253,12 +253,17 @@ public class ZoneEditorTool : DevkitServerSelectionTool
             return;
         }
 
+        ZoneModel? selectedZone = LevelZones.GetPrimary(EditorZones.EnumerateSelectedZones().SingleOrDefaultSafe());
         RuntimeGizmos gizmos = RuntimeGizmos.Get();
+        bool showOthers = ZoneEditorUI.Instance == null
+                          || !ZoneEditorUI.Instance.IsHidingOthers
+                          || DevkitSelectionManager.selection.Count != 1;
         foreach (ZoneModel zone in LevelZones.ZoneList)
         {
             if (zone.Component != null)
             {
-                zone.Component.RenderGizmos(gizmos);
+                if (showOthers || selectedZone != null && zone.Name.Equals(selectedZone.Name, StringComparison.Ordinal))
+                    zone.Component.RenderGizmos(gizmos);
             }
         }
     }

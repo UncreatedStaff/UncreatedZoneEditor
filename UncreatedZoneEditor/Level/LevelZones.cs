@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Uncreated.ZoneEditor.Data;
+using Uncreated.ZoneEditor.UI;
 
 namespace Uncreated.ZoneEditor;
 
@@ -13,7 +14,7 @@ namespace Uncreated.ZoneEditor;
 public static class LevelZones
 {
     internal static readonly List<ZoneModel> ZoneList = [];
-    private static ZoneJsonConfig? _zoneList;
+    internal static ZoneJsonConfig? ZoneListConfig;
 
     /// <summary>
     /// Path to the file that stores zones.
@@ -102,12 +103,12 @@ public static class LevelZones
         if (dir != null)
             Directory.CreateDirectory(dir);
 
-        if (_zoneList == null || !_zoneList.File.Equals(path))
+        if (ZoneListConfig == null || !ZoneListConfig.File.Equals(path))
         {
-            _zoneList = new ZoneJsonConfig(path) { ReadOnlyReloading = false };
+            ZoneListConfig = new ZoneJsonConfig(path) { ReadOnlyReloading = false };
         }
 
-        ZoneJsonList newConfig = _zoneList.Configuration ?? new ZoneJsonList();
+        ZoneJsonList newConfig = ZoneListConfig.Configuration ?? new ZoneJsonList();
 
         for (int i = 0; i < ZoneList.Count; ++i)
         {
@@ -194,14 +195,14 @@ public static class LevelZones
         newConfig.Zones.Clear();
         newConfig.Zones.AddRange(ZoneList);
 
-        _zoneList.Configuration = newConfig;
+        ZoneListConfig.Configuration = newConfig;
 
         if (File.Exists(path) && dir != null)
         {
             File.Copy(path, Path.Combine(dir, Path.GetFileNameWithoutExtension(path) + "_backup.json"), overwrite: true);
         }
 
-        _zoneList.SaveConfig();
+        ZoneListConfig.SaveConfig();
 
         UncreatedZoneEditor.Instance.LogInfo($"Saved {newConfig.Zones.Count.Format()} zone(s).");
     }
@@ -215,13 +216,13 @@ public static class LevelZones
         if (dir != null)
             Directory.CreateDirectory(dir);
 
-        if (_zoneList == null || !_zoneList.File.Equals(path))
+        if (ZoneListConfig == null || !ZoneListConfig.File.Equals(path))
         {
-            _zoneList = new ZoneJsonConfig(path) { ReadOnlyReloading = !Level.isEditor };
+            ZoneListConfig = new ZoneJsonConfig(path) { ReadOnlyReloading = !Level.isEditor };
         }
 
-        _zoneList.ReloadConfig();
-        _zoneList.Configuration.Zones ??= [ ];
+        ZoneListConfig.ReloadConfig();
+        ZoneListConfig.Configuration.Zones ??= [ ];
 
 #if CLIENT
         foreach (ZoneModel model in ZoneList)
@@ -236,7 +237,7 @@ public static class LevelZones
 
         ZoneList.Clear();
 
-        foreach (ZoneModel model in _zoneList.Configuration.Zones)
+        foreach (ZoneModel model in ZoneListConfig.Configuration.Zones)
         {
             model.Index = ZoneList.Count;
 

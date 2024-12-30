@@ -18,6 +18,7 @@
     <NeutralLanguage>en</NeutralLanguage>
     <Product>Uncreated Zone Editor</Product>
     <AssemblyName>Uncreated Zone Editor</AssemblyName>
+    <FileName>Uncreated.Zone.Editor</FileName>
     <PackageId>DanielWillett.UncreatedZoneEditor</PackageId>
     <Title>Uncreated Zone Editor</Title>
     <RootNamespace>Uncreated.ZoneEditor</RootNamespace>

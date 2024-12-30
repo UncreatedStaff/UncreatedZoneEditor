@@ -2,6 +2,7 @@
 using SDG.Framework.Devkit;
 using SDG.Framework.Utilities;
 using System.Collections.Generic;
+using Uncreated.ZoneEditor.Data;
 using Uncreated.ZoneEditor.Tools;
 
 namespace Uncreated.ZoneEditor.UI;
@@ -12,6 +13,7 @@ internal class EditorUIExtension : ContainerUIExtension
     private readonly Dictionary<LocationDevkitNode, ISleekLabel> _tags = new Dictionary<LocationDevkitNode, ISleekLabel>(new NodeEqualityComparer());
     private bool _subbed;
     private bool _lastFadeSetting;
+    private bool _lastShowOthers;
     private bool _lastWasPolyEditing;
     private bool _isEnabled;
     private bool _useOrthoOffset;
@@ -111,10 +113,15 @@ internal class EditorUIExtension : ContainerUIExtension
         if (_tracker == null)
             return;
 
+        bool showOthers = ZoneEditorUI.Instance == null
+                          || !ZoneEditorUI.Instance.IsHidingOthers
+                          || DevkitSelectionManager.selection.Count != 1;
+
         _tracker.OnUpdate();
         if (_lastFadeSetting != OptionsSettings.shouldNametagFadeOut
             || _tracker.HasPositionChanged
             || _tracker.HasRotationChanged
+            || _lastShowOthers != showOthers
             || UserControl.ActiveTool is ZoneEditorTool { PolygonEditTarget: not null } != _lastWasPolyEditing)
         {
             UpdateAllLocationTags();
@@ -145,12 +152,16 @@ internal class EditorUIExtension : ContainerUIExtension
         if (Container == null)
             return;
 
+        bool showOthers = _lastShowOthers;
+        _lastShowOthers = ZoneEditorUI.Instance == null
+                          || !ZoneEditorUI.Instance.IsHidingOthers
+                          || DevkitSelectionManager.selection.Count == 0;
         _lastFadeSetting = OptionsSettings.shouldNametagFadeOut;
         bool lastWasPolyEditing = _lastWasPolyEditing;
         _lastWasPolyEditing = UserControl.ActiveTool is ZoneEditorTool { PolygonEditTarget: not null };
-        if (_lastWasPolyEditing)
+        if (!_lastShowOthers || _lastWasPolyEditing)
         {
-            if (lastWasPolyEditing)
+            if (!showOthers || lastWasPolyEditing)
                 return;
 
             foreach (ISleekLabel label in _tags.Values)

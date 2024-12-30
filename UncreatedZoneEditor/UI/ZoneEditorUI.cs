@@ -23,6 +23,7 @@ public class ZoneEditorUI : SleekFullscreenBox
     private readonly ISleekField _nameField;
     private readonly ISleekField _factionField;
     private readonly ISleekButton _editSpawnButton;
+    private readonly ISleekToggle _hideOthersCheck;
     private readonly ISleekField _shortNameField;
     private readonly ISleekFloat32Field _minHeightField;
     private readonly ISleekSlider _minHeightSlider;
@@ -35,6 +36,24 @@ public class ZoneEditorUI : SleekFullscreenBox
     private readonly SleekList<ZoneModel> _zoneList;
     private readonly SleekButtonState _shapeToggle;
     private readonly SleekButtonState _typeToggle;
+
+    public bool IsHidingOthers
+    {
+        get => _hideOthersCheck.Value;
+        set
+        {
+            _hideOthersCheck.Value = value;
+            if (LevelZones.ZoneListConfig == null || LevelZones.ZoneListConfig.Configuration == null)
+                return;
+
+            if (LevelZones.ZoneListConfig.Configuration.HideDeselectedZones == value)
+                return;
+
+            LevelZones.ZoneListConfig.Configuration.HideDeselectedZones = value;
+            UncreatedZoneEditor.Instance.isDirty = true;
+        }
+    }
+
     public ZoneShape SelectedShape
     {
         get => (ZoneShape)_shapeToggle.state;
@@ -158,6 +177,7 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         _shapeToggle.onSwappedState += OnShapeToggled;
         _shapeToggle.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("ShapeField"), ESleekSide.RIGHT);
+        _shapeToggle.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
 
         AddChild(_shapeToggle);
 
@@ -168,6 +188,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         _shortNameField.SizeOffset_X = 230f;
         _shortNameField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("ShortNameTooltip");
         _shortNameField.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("ShortNameField"), ESleekSide.RIGHT);
+        _shortNameField.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
         _shortNameField.OnTextChanged += ShortNameFieldUpdated;
 
         AddChild(_shortNameField);
@@ -179,6 +200,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         _nameField.SizeOffset_X = 230f;
         _nameField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("NameTooltip");
         _nameField.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("NameField"), ESleekSide.RIGHT);
+        _nameField.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
         _nameField.OnTextSubmitted += NameFieldUpdated;
 
         AddChild(_nameField);
@@ -203,6 +225,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         _minHeightInfinityToggle.Value = true;
         _minHeightInfinityToggle.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("MinHeightInfinityTooltip");
         _minHeightInfinityToggle.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("MinHeightInfinityToggle"), ESleekSide.RIGHT);
+        _minHeightInfinityToggle.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
         _minHeightInfinityToggle.OnValueChanged += MinHeightInfinityToggleUpdated;
 
         AddChild(_minHeightInfinityToggle);
@@ -215,6 +238,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         _minHeightField.Value = float.NegativeInfinity;
         _minHeightField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("MinHeightTooltip");
         _minHeightField.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("MinHeightField"), ESleekSide.RIGHT);
+        _minHeightField.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
         _minHeightField.OnValueChanged += MinHeightFieldUpdated;
 
         AddChild(_minHeightField);
@@ -238,6 +262,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         _maxHeightInfinityToggle.Value = true;
         _maxHeightInfinityToggle.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("MaxHeightInfinityTooltip");
         _maxHeightInfinityToggle.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("MaxHeightInfinityToggle"), ESleekSide.RIGHT);
+        _maxHeightInfinityToggle.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
         _maxHeightInfinityToggle.OnValueChanged += MaxHeightInfinityToggleUpdated;
 
         AddChild(_maxHeightInfinityToggle);
@@ -249,6 +274,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         _maxHeightField.SizeOffset_X = 230f;
         _maxHeightField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("MaxHeightTooltip");
         _maxHeightField.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("MaxHeightField"), ESleekSide.RIGHT);
+        _maxHeightField.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
         _maxHeightField.OnValueChanged += MaxHeightFieldUpdated;
 
         AddChild(_maxHeightField);
@@ -271,7 +297,8 @@ public class ZoneEditorUI : SleekFullscreenBox
             new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeMainBase")),
             new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeAntiMainCampArea")),
             new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeLobby")),
-            new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeOther"))
+            new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeOther")),
+            new GUIContent(UncreatedZoneEditor.Instance.Translations.Translate("TypeWarRoom"))
         ])
         {
             PositionScale_Y = 1f,
@@ -285,6 +312,7 @@ public class ZoneEditorUI : SleekFullscreenBox
 
         _typeToggle.onSwappedState += OnTypeToggled;
         _typeToggle.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("TypeField"), ESleekSide.RIGHT);
+        _typeToggle.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
 
         _factionField = Glazier.Get().CreateStringField();
         _factionField.PositionScale_Y = 1f;
@@ -293,6 +321,7 @@ public class ZoneEditorUI : SleekFullscreenBox
         _factionField.SizeOffset_X = 230f;
         _factionField.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("FactionTooltip");
         _factionField.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("FactionField"), ESleekSide.RIGHT);
+        _factionField.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
         _factionField.OnTextChanged += FactionFieldUpdated;
 
         AddChild(_factionField);
@@ -307,6 +336,18 @@ public class ZoneEditorUI : SleekFullscreenBox
         _editSpawnButton.OnClicked += OnEditSpawnClicked;
 
         AddChild(_editSpawnButton);
+
+        _hideOthersCheck = Glazier.Get().CreateToggle();
+        _hideOthersCheck.PositionScale_Y = 1f;
+        _hideOthersCheck.PositionOffset_X = 0f;
+        _hideOthersCheck.SizeOffset_Y = 25f;
+        _hideOthersCheck.SizeOffset_X = 25f;
+        _hideOthersCheck.TooltipText = UncreatedZoneEditor.Instance.Translations.Translate("HideOthersToggleTooltip");
+        _hideOthersCheck.AddLabel(UncreatedZoneEditor.Instance.Translations.Translate("HideOthersToggle"), ESleekSide.RIGHT);
+        _hideOthersCheck.SideLabel.TextContrastContext = ETextContrastContext.ColorfulBackdrop;
+        _hideOthersCheck.Value = LevelZones.ZoneListConfig?.Configuration.HideDeselectedZones ?? false;
+
+        AddChild(_hideOthersCheck);
 
         UpdateBottomLeftStack();
 
@@ -423,6 +464,13 @@ public class ZoneEditorUI : SleekFullscreenBox
         {
             h -= _editSpawnButton.SizeOffset_Y;
             _editSpawnButton.PositionOffset_Y = h;
+            h -= 5f;
+        }
+
+        if (_hideOthersCheck.IsVisible)
+        {
+            h -= _hideOthersCheck.SizeOffset_Y;
+            _hideOthersCheck.PositionOffset_Y = h;
             h -= 5f;
         }
 

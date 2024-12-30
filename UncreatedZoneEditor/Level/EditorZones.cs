@@ -832,7 +832,7 @@ public static class EditorZones
         EventOnZoneFactionUpdated.TryInvoke(model, oldFaction);
     }
 
-    public static bool CanTypeHaveFaction(ZoneType type) => type is ZoneType.MainBase or ZoneType.AntiMainCampArea;
+    public static bool CanTypeHaveFaction(ZoneType type) => type is ZoneType.MainBase or ZoneType.AntiMainCampArea or ZoneType.WarRoom;
 
     private static void AssertEditor()
     {
