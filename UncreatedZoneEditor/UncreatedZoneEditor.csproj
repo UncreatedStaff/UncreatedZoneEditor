@@ -1,9 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Versioning TODO every update -->
   <PropertyGroup>
 
-    <Version>0.0.1</Version>
+    <Version>1.0.0</Version>
     <PackageReleaseNotes>https://github.com/DanielWillett/UncreatedZoneEditor/releases</PackageReleaseNotes>
 
     <!-- Client, Server, or Both (generates two packages) -->
@@ -165,6 +165,14 @@
     <Error Text="Server path '$(ServerPath)' is not present. Change it in 'Paths.targets'." Importance="high" Condition="!exists('$(ServerPath)')" />
     <Error Text="Client path '$(ClientPath)' is not present. Change it in 'Paths.targets'." Importance="high" Condition="!exists('$(ClientPath)')" />
     <Error Text="DevkitServer module at '$(DevkitServerModulePath)' is not present. Change it in 'Paths.targets'." Importance="high" Condition="!exists('$(DevkitServerModulePath)')" />
+  </Target>
+
+  <Target Name="Copy to plugins" AfterTargets="Build" Condition="exists('C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins')">
+	  <Exec Command="
+			XCOPY /v /y &quot;$([System.IO.Path]::Combine($(OutDir),Uncreated Zone Editor.dll))*&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins\Uncreated Zone Editor.dll*&quot;&#xD;&#xA;
+			XCOPY /v /y &quot;$([System.IO.Path]::Combine($(OutDir),Uncreated Zone Editor.pdb))*&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins\Uncreated Zone Editor.pdb*&quot;&#xD;&#xA;
+			XCOPY /v /y &quot;$([System.IO.Path]::Combine($(OutDir),Uncreated Zone Editor.xml))*&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins\Uncreated Zone Editor.xml*&quot;&#xD;&#xA;
+			" />
   </Target>
 
   <!-- Debug Output -->
