@@ -1,5 +1,6 @@
-﻿#if CLIENT
+#if CLIENT
 using Cysharp.Threading.Tasks;
+using DanielWillett.UITools;
 using DevkitServer;
 using DevkitServer.Multiplayer.Movement;
 using SDG.Framework.Landscapes;
@@ -47,7 +48,7 @@ internal static class TopViewHelper
                 if (IsActive)
                 {
                     MainCamera.instance.orthographic = true;
-                    EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+                    EditorUIExtension? editorUIExtension = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorUIExtension>();
                     if (editorUIExtension != null)
                         editorUIExtension.UseOrthoOffset = true;
                 }
@@ -56,7 +57,7 @@ internal static class TopViewHelper
         else
         {
             MainCamera.instance.orthographic = true;
-            EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+            EditorUIExtension? editorUIExtension = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorUIExtension>();
             if (editorUIExtension != null)
                 editorUIExtension.UseOrthoOffset = true;
         }
@@ -82,7 +83,7 @@ internal static class TopViewHelper
         MainCamera.instance.nearClipPlane = _oldNearClip;
         MainCamera.instance.orthographicSize = 20f;
         MainCamera.instance.orthographic = false;
-        EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+        EditorUIExtension? editorUIExtension = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorUIExtension>();
         if (editorUIExtension != null)
             editorUIExtension.UseOrthoOffset = false;
 

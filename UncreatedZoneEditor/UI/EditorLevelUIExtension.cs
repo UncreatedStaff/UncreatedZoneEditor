@@ -1,4 +1,8 @@
-﻿#if CLIENT
+#if CLIENT
+using DanielWillett.UITools.API.Extensions;
+using DanielWillett.UITools.API.Extensions.Members;
+using DanielWillett.UITools.Util;
+
 namespace Uncreated.ZoneEditor.UI;
 
 [UIExtension(typeof(EditorLevelUI))]

@@ -1,11 +1,15 @@
-﻿using System;
+using System;
+using System.IO;
+using System.Linq;
 using System.Reflection;
+using DanielWillett.UITools.API;
 using SDG.Framework.Devkit;
+using Uncreated.ZoneEditor.Caches;
 using Uncreated.ZoneEditor.Multiplayer;
 #if CLIENT
 using System.Collections.Generic;
-using System.Reflection.Emit;
-using Uncreated.ZoneEditor.UI;
+using DanielWillett.UITools.Util;
+using DevkitServer.AssetTools;
 #endif
 
 namespace Uncreated.ZoneEditor;
@@ -18,6 +22,8 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         public static readonly PermissionLeaf EditZones = new PermissionLeaf("uncreated.zones::level.zones.edit");
     }
 
+    private CacheDevkitNodeSystem _cacheSystem;
+
 
 #nullable disable
 
@@ -25,6 +31,13 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
     /// The singleton instance of the <see cref="UncreatedZoneEditor"/> plugin.
     /// </summary>
     public static UncreatedZoneEditor Instance { get; private set; }
+
+#if CLIENT
+    /// <summary>
+    /// Bundle at Caches/CacheModelBundle.unity3d.
+    /// </summary>
+    public Bundle CacheBundle { get; private set; }
+#endif
 
 #nullable restore
     protected override LocalDatDictionary DefaultLocalization => new LocalDatDictionary
@@ -98,7 +111,9 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "NonPowerGridObjectHint", "Only powered objects can be selected." },
 
         { "MapperWeightField", "Weight" },
-        { "MapperWeightTooltip", "The relative chance this relation will be chosen." }
+        { "MapperWeightTooltip", "The relative chance this relation will be chosen." },
+
+        { "ButtonCacheNode", "Insurgency Cache" }
     };
 
 #if DEBUG
@@ -131,13 +146,38 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         Instance = this;
 
 #if CLIENT
-        UIAccessTools.OnInitializingUIInfo += RegisterUITypes;
+        UIAccessor.OnInitializingUIInfo += RegisterUITypes;
 #endif
 
         AssemblyName assemblyName = Assembly.Assembly.GetName();
         this.LogInfo(Translations.Translate("LoadText", assemblyName.Name, assemblyName.Version.ToString(3), "DanielWillett"));
 
         ZoneNetIdDatabase.Init();
+
+#if CLIENT
+        string outFileName = Path.Combine(Path.GetTempPath(), "UC_CacheModelBundle.unity3d");
+        using (Stream stream = Assembly.Assembly.GetManifestResourceStream("Uncreated.ZoneEditor.Caches.CacheModelBundle.unity3d")!)
+        using (FileStream fs = new FileStream(outFileName, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            stream.CopyTo(fs);
+        }
+
+        CacheBundle = new Bundle(outFileName, false, "Uncreated.ZoneEditor");
+        GameObject[] gameObjects = CacheBundle.loadAll<GameObject>();
+        foreach (GameObject go in gameObjects)
+        {
+            Grabber.Save(go, Path.Combine(UnturnedPaths.RootDirectory.FullName, $"out/outcheck_{go.name}"));
+        }
+        this.LogInfo(string.Join(", ", gameObjects.Select(x => x.gameObject)));
+#endif
+
+        _cacheSystem = new CacheDevkitNodeSystem();
+        Level.onPrePreLevelLoaded += OnLevelLoading;
+    }
+
+    private void OnLevelLoading(int level)
+    {
+        _cacheSystem.Load();
     }
 
     protected override void Unload()
@@ -150,22 +190,31 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         this.LogInfo(Translations.Translate("UnloadText", assemblyName.Name, assemblyName.Version.ToString(3), "DanielWillett"));
 
         LevelZones.Unload();
+
+#if CLIENT
+        CacheBundle?.unload();
+        CacheBundle = null;
+#endif
+
+        Level.onPrePreLevelLoaded -= OnLevelLoading;
+        _cacheSystem.Dispose();
     }
 
 #if CLIENT
     private static void RegisterUITypes(Dictionary<Type, UITypeInfo> typeInfo)
     {
-        UIAccessTools.OnInitializingUIInfo -= RegisterUITypes;
+        UIAccessor.OnInitializingUIInfo -= RegisterUITypes;
 
-        typeInfo.Add(typeof(ZoneEditorUI), new UITypeInfo(typeof(ZoneEditorUI), hasActiveMember: true)
-        {
-            IsStaticUI = false,
-            CustomEmitter = (_, il) =>
-            {
-                MethodInfo loadMethod = typeof(ZoneEditorUI).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)!.GetMethod;
-                il.Emit(OpCodes.Call, loadMethod);
-            }
-        });
+        // todo
+        // typeInfo.Add(typeof(ZoneEditorUI), new UITypeInfo(typeof(ZoneEditorUI), hasActiveMember: true)
+        // {
+        //     IsStaticUI = false,
+        //     CustomEmitter = (_, il) =>
+        //     {
+        //         MethodInfo loadMethod = typeof(ZoneEditorUI).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)!.GetMethod;
+        //         il.Emit(OpCodes.Call, loadMethod);
+        //     }
+        // });
     }
 #endif
 

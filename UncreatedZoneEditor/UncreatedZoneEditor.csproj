@@ -63,6 +63,12 @@
     <PackageRequireLicenseAcceptance>False</PackageRequireLicenseAcceptance>
 
   </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Caches\CacheModelBundle.unity3d" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Caches\CacheModelBundle.unity3d" />
+  </ItemGroup>
 
 
   <!-- Package Assets -->
@@ -168,11 +174,7 @@
   </Target>
 
   <Target Name="Copy to plugins" AfterTargets="Build" Condition="exists('C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins')">
-	  <Exec Command="
-			XCOPY /v /y &quot;$([System.IO.Path]::Combine($(OutDir),Uncreated Zone Editor.dll))*&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins\Uncreated Zone Editor.dll*&quot;&#xD;&#xA;
-			XCOPY /v /y &quot;$([System.IO.Path]::Combine($(OutDir),Uncreated Zone Editor.pdb))*&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins\Uncreated Zone Editor.pdb*&quot;&#xD;&#xA;
-			XCOPY /v /y &quot;$([System.IO.Path]::Combine($(OutDir),Uncreated Zone Editor.xml))*&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins\Uncreated Zone Editor.xml*&quot;&#xD;&#xA;
-			" />
+	  <Exec Command="&#xD;&#xA;			XCOPY /v /y &quot;$([System.IO.Path]::Combine($(OutDir),Uncreated Zone Editor.dll))*&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins\Uncreated Zone Editor.dll*&quot;&#xD;&#xA;&#xD;&#xA;			XCOPY /v /y &quot;$([System.IO.Path]::Combine($(OutDir),Uncreated Zone Editor.pdb))*&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins\Uncreated Zone Editor.pdb*&quot;&#xD;&#xA;&#xD;&#xA;			XCOPY /v /y &quot;$([System.IO.Path]::Combine($(OutDir),Uncreated Zone Editor.xml))*&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Unturned\DevkitServer\Plugins\Uncreated Zone Editor.xml*&quot;&#xD;&#xA;&#xD;&#xA;			" />
   </Target>
 
   <!-- Debug Output -->
@@ -185,6 +187,20 @@
     <Message Text="Package: &quot;$(Title)&quot; $(PackageId)  v$(PackageVersion)." Importance="high" />
     <Message Text="Defines: $(DefineConstants)." Importance="high" />
   </Target>
+
+	<ItemGroup>
+		<PackageReference Include="Krafs.Publicizer" Version="2.3.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+	<ItemGroup>
+
+		<Publicize Include="Assembly-CSharp:SDG.Unturned.TempNodeSystemBase.GetComponentType" />
+		<Publicize Include="Assembly-CSharp:SDG.Unturned.TempNodeSystemBase.EnumerateGameObjects" />
+		<Publicize Include="Assembly-CSharp:SDG.Unturned.EditorEnvironmentNodesUI" />
+
+	</ItemGroup>
 
   <!-- Keep this at the bottom, makes unit tests work -->
   <Import Project="../Cleanup.targets" />

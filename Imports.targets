@@ -34,8 +34,6 @@
   </ItemGroup>
   <ItemGroup Condition="$(IsClient)">
     <Using Include="DevkitServer.API.UI" />
-    <Using Include="DevkitServer.API.UI.Extensions" />
-    <Using Include="DevkitServer.API.UI.Extensions.Members" />
   </ItemGroup>
 
 </Project>

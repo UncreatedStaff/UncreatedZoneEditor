@@ -1,4 +1,5 @@
-﻿using Uncreated.ZoneEditor.Tools;
+using DanielWillett.UITools.Util;
+using Uncreated.ZoneEditor.Tools;
 
 #if CLIENT
 namespace Uncreated.ZoneEditor.UI;
@@ -45,7 +46,7 @@ public class ZoneMapperUI : SleekFullscreenBox
         {
             ZoneEditorUI.Instance.Close();
         }
-        if (UserControl.ActiveTool is VolumesEditor && UIAccessTools.EditorVolumesUI is { } volUi)
+        if (UserControl.ActiveTool is VolumesEditor && UIAccessor.EditorVolumesUI is { } volUi)
         {
             ZoneEditorUI.CloseVolumeUI?.Invoke(volUi);
         }

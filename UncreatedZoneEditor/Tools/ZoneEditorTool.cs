@@ -1,12 +1,13 @@
-﻿#if CLIENT
+#if CLIENT
+using DanielWillett.UITools;
 using DevkitServer.Core.Tools;
 using DevkitServer.Multiplayer.Movement;
 using SDG.Framework.Devkit;
+using SDG.Framework.Devkit.Interactable;
 using SDG.Framework.Landscapes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SDG.Framework.Devkit.Interactable;
 using Uncreated.ZoneEditor.Data;
 using Uncreated.ZoneEditor.Objects;
 using Uncreated.ZoneEditor.UI;
@@ -151,7 +152,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
 
     protected override void Equip()
     {
-        EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+        EditorUIExtension? editorUIExtension = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorUIExtension>();
         if (editorUIExtension != null)
             editorUIExtension.IsEnabled = true;
 
@@ -162,7 +163,7 @@ public class ZoneEditorTool : DevkitServerSelectionTool
     protected override void Dequip()
     {
         PolygonEditTarget = null;
-        EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+        EditorUIExtension? editorUIExtension = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorUIExtension>();
         if (editorUIExtension != null)
             editorUIExtension.IsEnabled = false;
 

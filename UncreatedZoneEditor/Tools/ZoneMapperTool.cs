@@ -1,4 +1,5 @@
-﻿#if CLIENT
+#if CLIENT
+using DanielWillett.UITools;
 using DevkitServer.API.Cartography;
 using DevkitServer.Multiplayer.Movement;
 using SDG.Framework.Devkit;
@@ -21,7 +22,7 @@ public class ZoneMapperTool : IDevkitTool
 
     void IDevkitTool.equip()
     {
-        EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+        EditorUIExtension? editorUIExtension = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorUIExtension>();
         if (editorUIExtension != null)
             editorUIExtension.IsEnabled = true;
 
@@ -32,7 +33,7 @@ public class ZoneMapperTool : IDevkitTool
 
     void IDevkitTool.dequip()
     {
-        EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+        EditorUIExtension? editorUIExtension = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorUIExtension>();
         if (editorUIExtension != null)
             editorUIExtension.IsEnabled = false;
 
@@ -172,7 +173,7 @@ public class ZoneMapperTool : IDevkitTool
 
         if (needsNametagUpdate)
         {
-            EditorUIExtension? editorUIExtension = UIExtensionManager.GetInstance<EditorUIExtension>();
+            EditorUIExtension? editorUIExtension = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorUIExtension>();
             if (editorUIExtension != null)
                 editorUIExtension.UpdateAllLocationTags();
         }
