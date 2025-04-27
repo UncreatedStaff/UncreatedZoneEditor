@@ -1,7 +1,7 @@
-using System;
 using SDG.Framework.Devkit;
 using SDG.Framework.Devkit.Interactable;
 using SDG.Framework.IO.FormattedFiles;
+using System;
 
 namespace Uncreated.ZoneEditor.Caches;
 
@@ -41,6 +41,7 @@ public class CacheDevkitNode : TempNodeBase, IDevkitSelectionTransformableHandle
     {
         Creator = Provider.client.m_SteamID;
         name = "Cache";
+        gameObject.tag = "Logic";
         gameObject.layer = 30;
         if (!Level.isEditor)
             return;
@@ -61,18 +62,27 @@ public class CacheDevkitNode : TempNodeBase, IDevkitSelectionTransformableHandle
             }
 
             _childObject = Instantiate(loadedCache);
+            _childObject.gameObject.SetLayerRecursively(LayerMasks.BARRICADE);
             _childObject.transform.SetParent(transform);
-            _childObject.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-            _childObject.SetActive(true);
-            _collider = _childObject.GetComponent<Collider>();
-            if (_collider == null)
+            _childObject.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.Euler(-90f, 0f, 0f));
+            BoxCollider collider = _childObject.GetComponent<BoxCollider>();
+            if (collider == null)
             {
                 UncreatedZoneEditor.Instance.LogWarning("Unable to find Cache.prefab collider.");
             }
             else
             {
-                UncreatedZoneEditor.Instance.LogDebug("Spawned Cache.prefab.");
+                BoxCollider newCollider = gameObject.AddComponent<BoxCollider>();
+                newCollider.size = collider.size;
+                newCollider.center = collider.center;
+                newCollider.isTrigger = collider.isTrigger;
+                newCollider.sharedMaterial = collider.sharedMaterial;
+                Destroy(collider);
+                _collider = newCollider;
             }
+
+            _childObject.SetActive(true);
+            _childObject.gameObject.SetTagIfUntaggedRecursively("Barricade");
         }
         catch (Exception ex)
         {

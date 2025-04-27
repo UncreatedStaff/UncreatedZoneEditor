@@ -15,6 +15,8 @@ internal class EditorEnvironmentNodesUIExtension : UIExtension<EditorEnvironment
 
 #nullable restore
 
+    public bool IsActive => _tool.activeNodeSystem == CacheDevkitNodeSystem.Get();
+
     public EditorEnvironmentNodesUIExtension()
     {
         ISleekElement frame = Instance!.AsEnumerable().LastOrDefault()!;

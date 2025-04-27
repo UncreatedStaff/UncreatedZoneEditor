@@ -163,12 +163,6 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         }
 
         CacheBundle = new Bundle(outFileName, false, "Uncreated.ZoneEditor");
-        GameObject[] gameObjects = CacheBundle.loadAll<GameObject>();
-        foreach (GameObject go in gameObjects)
-        {
-            Grabber.Save(go, Path.Combine(UnturnedPaths.RootDirectory.FullName, $"out/outcheck_{go.name}"));
-        }
-        this.LogInfo(string.Join(", ", gameObjects.Select(x => x.gameObject)));
 #endif
 
         _cacheSystem = new CacheDevkitNodeSystem();

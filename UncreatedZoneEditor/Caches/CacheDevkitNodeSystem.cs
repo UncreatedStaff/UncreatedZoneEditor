@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using DanielWillett.UITools;
 
 namespace Uncreated.ZoneEditor.Caches;
 
@@ -127,17 +128,47 @@ public class CacheDevkitNodeSystem : TempNodeSystemBase, IDisposable, IDirtyable
 
     private void OnUpdateGizmos()
     {
-        if (!SpawnpointSystemV2.Get().IsVisible || !Level.isEditor)
+        if (!SpawnpointSystemV2.Get().IsVisible || !Level.isEditor || Level.isLoading)
             return;
+
+        bool isActive = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorEnvironmentNodesUIExtension>() is { IsActive: true };
+
+        RuntimeGizmos gizmos = RuntimeGizmos.Get();
+
+        Vector3 spawnPoint1 = new Vector3(-0.325f, 0f, -1.6f - 0.325f);
+        Vector3 spawnPoint2 = new Vector3(+0.325f, 0f, -1.6f + 0.325f);
+        Vector3 spawnPoint3 = new Vector3(spawnPoint1.x, spawnPoint1.y, spawnPoint2.z);
+        Vector3 spawnPoint4 = new Vector3(spawnPoint2.x, spawnPoint2.y, spawnPoint1.z);
+        Vector3 box1Center = new Vector3(0.01125595f, 0.5144702f, 0f);
+        Vector3 box1Size = new Vector3(1.920226f, 1.070658f, 1.641956f);
+        Vector3 box2Center = new Vector3(0.01125595f, 1.295658f, 0f);
+        Vector3 box2Size = new Vector3(0.125f, 0.45f, 0.125f);
+        Vector3 box3Center = new Vector3(0.01125595f, 1.583158f, 0f);
+        Vector3 box3Size = new Vector3(0.65f, 0.125f, 0.25f);
 
         foreach (CacheDevkitNode allNode in _allNodes)
         {
+            Matrix4x4 matrix = allNode.transform.localToWorldMatrix;
+            
             Color color = allNode.isSelected ? Color.cyan : Color.magenta;
-            Vector3 pos = allNode.transform.position;
-            Quaternion rot = allNode.transform.rotation;
-            RuntimeGizmos.Get().Box(pos + new Vector3(0.01125595f, 0.5144702f, 0f), rot, new Vector3(1.920226f, 1.070658f, 1.641956f), color);
-            RuntimeGizmos.Get().Box(pos + new Vector3(0.01125595f, 1.295658f, 0f), rot, new Vector3(0.125f, 0.45f, 0.125f), color);
-            RuntimeGizmos.Get().Box(pos + new Vector3(0.01125595f, 1.583158f, 0f), rot, new Vector3(0.65f, 0.125f, 0.25f), color);
+
+            gizmos.Box(matrix, box1Center, box1Size, color);
+            gizmos.Box(matrix, box2Center, box2Size, color);
+            gizmos.Box(matrix, box3Center, box3Size, color);
+
+            if (!isActive)
+                continue;
+
+            // spawn X symbol
+            Vector3 spawnPoint = matrix.MultiplyPoint3x4((spawnPoint1 + spawnPoint2) / 2f);
+
+            if (!PlayerStance.hasHeightClearanceAtPosition(spawnPoint, PlayerMovement.HEIGHT_STAND + 0.5f))
+            {
+                color = Color.red;
+            }
+
+            gizmos.Line(matrix.MultiplyPoint3x4(spawnPoint1), matrix.MultiplyPoint3x4(spawnPoint2), color);
+            gizmos.Line(matrix.MultiplyPoint3x4(spawnPoint3), matrix.MultiplyPoint3x4(spawnPoint4), color);
         }
     }
 }
