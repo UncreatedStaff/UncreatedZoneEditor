@@ -59,3 +59,4 @@ Cache locations can be enabled or disabled if needed without deleting them.
 An X will be displayed in front of the cache.
 If the X is red, the area is obstructed and a player can not spawn there, the cache needs to be moved to fix it.
 
+![image](https://github.com/user-attachments/assets/935b1ba1-a928-469c-ac5c-7d709cf2f27d)
