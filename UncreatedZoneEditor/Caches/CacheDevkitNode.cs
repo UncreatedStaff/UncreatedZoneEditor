@@ -12,6 +12,8 @@ public class CacheDevkitNode : TempNodeBase, IDevkitSelectionTransformableHandle
 
     public ulong Creator { get; set; }
 
+    public bool IsEnabled { get; set; }
+
     internal void UpdateEditorVisibility()
     {
         bool isVisible = SpawnpointSystemV2.Get().IsVisible;
@@ -19,16 +21,20 @@ public class CacheDevkitNode : TempNodeBase, IDevkitSelectionTransformableHandle
         _childObject?.SetActive(isVisible);
     }
 
+    public override ISleekElement CreateMenu() => new Menu(this);
+
     protected override void readHierarchyItem(IFormattedFileReader reader)
     {
         base.readHierarchyItem(reader);
         Creator = reader.readValue<ulong>("Creator");
+        IsEnabled = !reader.readValue<bool>("IsDisabled");
     }
 
     protected override void writeHierarchyItem(IFormattedFileWriter writer)
     {
         base.writeHierarchyItem(writer);
         writer.writeValue("Creator", Creator);
+        writer.writeValue<bool>("IsDisabled", !IsEnabled);
     }
 
     void IDevkitSelectionTransformableHandler.transformSelection()
@@ -40,6 +46,7 @@ public class CacheDevkitNode : TempNodeBase, IDevkitSelectionTransformableHandle
     private void Awake()
     {
         Creator = Provider.client.m_SteamID;
+        IsEnabled = true;
         name = "Cache";
         gameObject.tag = "Logic";
         gameObject.layer = 30;
@@ -111,5 +118,32 @@ public class CacheDevkitNode : TempNodeBase, IDevkitSelectionTransformableHandle
     private void OnDisable()
     {
         CacheDevkitNodeSystem.Get().RemoveNode(this);
+    }
+
+    private class Menu : SleekWrapper
+    {
+        private readonly CacheDevkitNode _node;
+
+        public Menu(CacheDevkitNode node)
+        {
+            _node = node;
+            SizeOffset_X = 400f;
+
+            ISleekToggle toggle = Glazier.Get().CreateToggle();
+            toggle.PositionOffset_Y = -30f;
+            toggle.SizeOffset_X = 40f;
+            toggle.SizeOffset_Y = 40f;
+            toggle.Value = node.IsEnabled;
+            toggle.AddLabel("Enabled", ESleekSide.RIGHT);
+            toggle.OnValueChanged += OnToggled;
+
+            AddChild(toggle);
+        }
+
+        private void OnToggled(ISleekToggle toggle, bool state)
+        {
+            _node.IsEnabled = state;
+            CacheDevkitNodeSystem.Get().isDirty = true;
+        }
     }
 }

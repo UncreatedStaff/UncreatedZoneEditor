@@ -69,7 +69,9 @@ public class CacheDevkitNodeSystem : TempNodeSystemBase, IDisposable, IDirtyable
                 new Vector3(loc.PositionX, loc.PositionY, loc.PositionZ),
                 Quaternion.Euler(loc.RotationX, loc.RotationY, loc.RotationZ)
             );
-            node.GetComponent<CacheDevkitNode>().Creator = loc.Creator;
+            CacheDevkitNode nodeComponent = node.GetComponent<CacheDevkitNode>();
+            nodeComponent.Creator = loc.Creator;
+            nodeComponent.IsEnabled = !loc.IsDisabled;
         }
     }
 
@@ -110,7 +112,8 @@ public class CacheDevkitNodeSystem : TempNodeSystemBase, IDisposable, IDirtyable
                 RotationX = rot.x,
                 RotationY = rot.y,
                 RotationZ = rot.z,
-                Creator = x.Creator
+                Creator = x.Creator,
+                IsDisabled = !x.IsEnabled
             };
         }).ToList();
 
@@ -149,8 +152,12 @@ public class CacheDevkitNodeSystem : TempNodeSystemBase, IDisposable, IDirtyable
         foreach (CacheDevkitNode allNode in _allNodes)
         {
             Matrix4x4 matrix = allNode.transform.localToWorldMatrix;
-            
-            Color color = allNode.isSelected ? Color.cyan : Color.magenta;
+
+            Color color;
+            if (allNode.IsEnabled)
+                color = allNode.isSelected ? Color.cyan : Color.magenta;
+            else
+                color = allNode.isSelected ? new Color32(255, 153, 51, 255) : new Color32(255, 153, 102, 255);
 
             gizmos.Box(matrix, box1Center, box1Size, color);
             gizmos.Box(matrix, box2Center, box2Size, color);

@@ -51,3 +51,11 @@ Connect zones and provide weights used for picking the zones for a game.
 
 * Define unidirectional links between zones to define a path used for automatic zone pathing.
 * Add a weight to each path so some paths are chosen more than others.  
+
+# Insurgency Cache Nodes
+By going to the vanilla Nodes menu you can choose **Insurgency Cache** and place cache locations.
+Cache locations can be enabled or disabled if needed without deleting them.
+
+An X will be displayed in front of the cache.
+If the X is red, the area is obstructed and a player can not spawn there, the cache needs to be moved to fix it.
+

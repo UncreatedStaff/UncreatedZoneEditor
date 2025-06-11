@@ -25,6 +25,10 @@ public class CacheLocation
 
     [JsonPropertyName("creator")]
     public ulong Creator { get; set; }
+
+    [JsonPropertyName("disabled")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsDisabled { get; set; }
 }
 
 [JsonSerializable(typeof(CacheLocation))]
