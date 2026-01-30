@@ -1,15 +1,14 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using DanielWillett.UITools.API;
 using SDG.Framework.Devkit;
 using Uncreated.ZoneEditor.Caches;
 using Uncreated.ZoneEditor.Multiplayer;
+using Uncreated.ZoneEditor.VehicleBays;
 #if CLIENT
 using System.Collections.Generic;
 using DanielWillett.UITools.Util;
-using DevkitServer.AssetTools;
 #endif
 
 namespace Uncreated.ZoneEditor;
@@ -22,10 +21,12 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         public static readonly PermissionLeaf EditZones = new PermissionLeaf("uncreated.zones::level.zones.edit");
     }
 
-    private CacheDevkitNodeSystem _cacheSystem;
-
 
 #nullable disable
+
+    private CacheDevkitNodeSystem _cacheSystem;
+    private VehicleBayDevkitNodeSystem _vehicleBaySystem;
+    private VehicleBaySignDevkitNodeSystem _vehicleBaySignSystem;
 
     /// <summary>
     /// The singleton instance of the <see cref="UncreatedZoneEditor"/> plugin.
@@ -37,6 +38,11 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
     /// Bundle at Caches/CacheModelBundle.unity3d.
     /// </summary>
     public Bundle CacheBundle { get; private set; }
+
+    /// <summary>
+    /// Bundle at VehicleBays/VehicleAssetsBundle.unity3d.
+    /// </summary>
+    public Bundle VehicleBundle { get; private set; }
 #endif
 
 #nullable restore
@@ -113,7 +119,17 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         { "MapperWeightField", "Weight" },
         { "MapperWeightTooltip", "The relative chance this relation will be chosen." },
 
-        { "ButtonCacheNode", "Insurgency Cache" }
+        { "ButtonCacheNode", "Insurgency Cache" },
+        { "ButtonVehicleBayNode", "Vehicle Bay" },
+        { "ButtonVehicleBaySignNode", "Vehicle Bay Sign" },
+
+        { "SignLinked", "Sign linked to bay {0}." },
+        { "SignUnlinked", "Sign unlinked from bay {0}." },
+        { "SignAlreadyUnlinked", "Sign is already unlinked." },
+        { "SignAlreadyUnlinkedHit", "Sign is already unlinked,\nadd an ID to the bay." },
+        { "SignLinkNoTarget", "Middle click on a vehicle bay\nto link it to this sign." },
+        { "BayLinkNoTarget", "Middle click on a vehicle bay sign\nto link it to this bay." },
+        { "BayLinkNoID", "ID required to link." }
     };
 
 #if DEBUG
@@ -155,23 +171,23 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
         ZoneNetIdDatabase.Init();
 
 #if CLIENT
-        string outFileName = Path.Combine(Path.GetTempPath(), "UC_CacheModelBundle.unity3d");
-        using (Stream stream = Assembly.Assembly.GetManifestResourceStream("Uncreated.ZoneEditor.Caches.CacheModelBundle.unity3d")!)
-        using (FileStream fs = new FileStream(outFileName, FileMode.Create, FileAccess.Write, FileShare.None))
-        {
-            stream.CopyTo(fs);
-        }
 
-        CacheBundle = new Bundle(outFileName, false, "Uncreated.ZoneEditor");
+        CacheBundle = LoadBundle("Uncreated.ZoneEditor.Caches.CacheModelBundle.unity3d", "Uncreated.ZoneEditor.Caches");
+        VehicleBundle = LoadBundle("Uncreated.ZoneEditor.VehicleBays.VehicleAssetsBundle.unity3d", "Uncreated.ZoneEditor.VehicleBays");
+
 #endif
 
         _cacheSystem = new CacheDevkitNodeSystem();
+        _vehicleBaySystem = new VehicleBayDevkitNodeSystem();
+        _vehicleBaySignSystem = new VehicleBaySignDevkitNodeSystem();
         Level.onPrePreLevelLoaded += OnLevelLoading;
     }
 
     private void OnLevelLoading(int level)
     {
         _cacheSystem.Load();
+        _vehicleBaySystem.Load();
+        _vehicleBaySignSystem.Load();
     }
 
     protected override void Unload()
@@ -188,13 +204,39 @@ public class UncreatedZoneEditor : Plugin<UncreatedZoneEditorConfig>, IDirtyable
 #if CLIENT
         CacheBundle?.unload();
         CacheBundle = null;
+
+        VehicleBundle?.unload();
+        VehicleBundle = null;
 #endif
 
         Level.onPrePreLevelLoaded -= OnLevelLoading;
         _cacheSystem.Dispose();
+        _vehicleBaySystem.Dispose();
+        _vehicleBaySignSystem.Dispose();
     }
 
 #if CLIENT
+
+    private Bundle? LoadBundle(string manifestResource, string name)
+    {
+        string outFileName = Path.Combine(Path.GetTempPath(), name + ".unity3d");
+        Stream? stream = Assembly.Assembly.GetManifestResourceStream(manifestResource);
+        if (stream == null)
+        {
+            this.LogError($"Bundle {name.Format(false)} not found at {manifestResource.Format()}.");
+            return null;
+        }
+
+        using (stream)
+        using (FileStream fs = new FileStream(outFileName, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            stream.CopyTo(fs);
+        }
+
+        return new Bundle(outFileName, false, nameOverride: name);
+    }
+
+
     private static void RegisterUITypes(Dictionary<Type, UITypeInfo> typeInfo)
     {
         UIAccessor.OnInitializingUIInfo -= RegisterUITypes;

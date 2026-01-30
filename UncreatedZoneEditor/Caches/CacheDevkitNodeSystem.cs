@@ -5,13 +5,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using DanielWillett.UITools;
+using Uncreated.ZoneEditor.Nodes;
 
 namespace Uncreated.ZoneEditor.Caches;
 
 public class CacheDevkitNodeSystem : TempNodeSystemBase, IDisposable, IDirtyable
 {
-    private static CacheDevkitNodeSystem _instance;
+    private static CacheDevkitNodeSystem? _instance;
     private readonly List<CacheDevkitNode> _allNodes;
 
     private string? _filePath;
@@ -54,7 +56,7 @@ public class CacheDevkitNodeSystem : TempNodeSystemBase, IDisposable, IDirtyable
         try
         {
             using FileStream fs = new FileStream(_filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024, FileOptions.SequentialScan);
-            locations = (List<CacheLocation>)JsonSerializer.Deserialize(fs, typeof(List<CacheLocation>), CacheLocationSerializeContext.Default);
+            locations = (List<CacheLocation>?)JsonSerializer.Deserialize(fs, typeof(List<CacheLocation>), CacheLocationSerializeContext.Default) ?? [];
         }
         catch (Exception ex)
         {
@@ -83,7 +85,7 @@ public class CacheDevkitNodeSystem : TempNodeSystemBase, IDisposable, IDirtyable
 
     public static CacheDevkitNodeSystem Get()
     {
-        return _instance;
+        return _instance ?? throw new InvalidOperationException("Not initialized.");
     }
 
     internal void AddNode(CacheDevkitNode node)
@@ -120,8 +122,16 @@ public class CacheDevkitNodeSystem : TempNodeSystemBase, IDisposable, IDirtyable
         string path = _filePath!;
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
-        using FileStream fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 1024, FileOptions.SequentialScan);
-        JsonSerializer.Serialize(fs, locations, typeof(List<CacheLocation>), CacheLocationSerializeContext.Default);
+        Thread.BeginCriticalRegion();
+        try
+        {
+            using FileStream fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 1024, FileOptions.SequentialScan);
+            JsonSerializer.Serialize(fs, locations, typeof(List<CacheLocation>), CacheLocationSerializeContext.Default);
+        }
+        finally
+        {
+            Thread.EndCriticalRegion();
+        }
     }
 
     public void Dispose()
@@ -134,7 +144,7 @@ public class CacheDevkitNodeSystem : TempNodeSystemBase, IDisposable, IDirtyable
         if (!SpawnpointSystemV2.Get().IsVisible || !Level.isEditor || Level.isLoading)
             return;
 
-        bool isActive = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorEnvironmentNodesUIExtension>() is { IsActive: true };
+        bool isActive = UnturnedUIToolsNexus.UIExtensionManager.GetInstance<EditorEnvironmentNodesUIExtension>() is { IsCacheActive: true };
 
         RuntimeGizmos gizmos = RuntimeGizmos.Get();
 

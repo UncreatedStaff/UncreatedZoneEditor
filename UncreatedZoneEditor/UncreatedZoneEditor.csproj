@@ -65,9 +65,11 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Caches\CacheModelBundle.unity3d" />
+    <None Remove="VehicleBays\VehicleAssetsBundle.unity3d" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Caches\CacheModelBundle.unity3d" />
+    <EmbeddedResource Include="VehicleBays\VehicleAssetsBundle.unity3d" />
   </ItemGroup>
 
 
@@ -200,6 +202,10 @@
 		<Publicize Include="Assembly-CSharp:SDG.Unturned.TempNodeSystemBase.GetComponentType" />
 		<Publicize Include="Assembly-CSharp:SDG.Unturned.TempNodeSystemBase.EnumerateGameObjects" />
 		<Publicize Include="Assembly-CSharp:SDG.Unturned.EditorEnvironmentNodesUI" />
+		<Publicize Include="Assembly-CSharp:SDG.Unturned.InteractableVehicle.init" />
+		<Publicize Include="Assembly-CSharp:SDG.Unturned.InteractableVehicle.OnUpdate" />
+		<Publicize Include="Assembly-CSharp:SDG.Unturned.InteractableVehicle.hasUnityCalledStart" />
+		<Publicize Include="Assembly-CSharp:SDG.Unturned.Provider._isServer" />
 
 	</ItemGroup>
 

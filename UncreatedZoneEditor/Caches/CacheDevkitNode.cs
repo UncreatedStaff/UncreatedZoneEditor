@@ -68,9 +68,8 @@ public class CacheDevkitNode : TempNodeBase, IDevkitSelectionTransformableHandle
                 return;
             }
 
-            _childObject = Instantiate(loadedCache);
+            _childObject = Instantiate(loadedCache, transform, true);
             _childObject.gameObject.SetLayerRecursively(LayerMasks.BARRICADE);
-            _childObject.transform.SetParent(transform);
             _childObject.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.Euler(-90f, 0f, 0f));
             BoxCollider collider = _childObject.GetComponent<BoxCollider>();
             if (collider == null)
@@ -80,8 +79,10 @@ public class CacheDevkitNode : TempNodeBase, IDevkitSelectionTransformableHandle
             else
             {
                 BoxCollider newCollider = gameObject.AddComponent<BoxCollider>();
-                newCollider.size = collider.size;
-                newCollider.center = collider.center;
+                Vector3 center = collider.center;
+                Vector3 size = collider.size;
+                newCollider.size = new Vector3(size.x, size.z, size.y);
+                newCollider.center = new Vector3(center.x, center.z, -center.y);
                 newCollider.isTrigger = collider.isTrigger;
                 newCollider.sharedMaterial = collider.sharedMaterial;
                 Destroy(collider);
